@@ -1,4 +1,9 @@
 /__pycache__
+*/__pycache__
 /dev_venv
 .env
 linebot_*.log
+alembic/README
+alembic/script.py.mako
+alembic/versions
+/hiStaff.db
