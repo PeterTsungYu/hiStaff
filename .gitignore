@@ -1,0 +1,4 @@
+/__pycache__
+/dev_venv
+.env
+linebot_*.log
