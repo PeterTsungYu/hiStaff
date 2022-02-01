@@ -5,5 +5,5 @@
 linebot_*.log
 alembic/README
 alembic/script.py.mako
-alembic/versions
+alembic/versions/__pycache__
 /hiStaff.db

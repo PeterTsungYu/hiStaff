@@ -31,8 +31,9 @@ app = Flask(__name__)
 def init_tables():
     result = init_db()
     if result:
-        #db_session.add_all(product_lst) # a way to insert many query
+        db_session.add_all(staff_lst) # a way to insert many query
         db_session.commit()
+        config.logger.debug('create staffs')
 
 # an “on request end” event
 # automatically remove database sessions at the end of the request 
@@ -43,11 +44,12 @@ def shutdown_session(exception=None):
 
 
 def init_db():
-    if inspect(engine).has_table('products') and inspect(engine).has_table('scooters'):
+    if inspect(engine).has_table('staffs'):
         return False
     else:    
         Base.metadata.create_all(bind=engine)
         return True
+
 
 def get_or_create_user(user_id):
     user = Users.query.filter_by(id=user_id).first()
@@ -68,9 +70,17 @@ class Users(Base):
     nick_name = Column(String)
     image_url = Column(String(length=256))
     created_time = Column(DateTime, default=datetime.now())
-    
     def __repr__(self):
         return f'<User {self.nick_name!r}>'
+
+class Staffs(Base):
+    __tablename__ = 'staffs'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String)
+    def __repr__(self):
+        return f'<User {self.staff_name!r}>'
+
+staff_lst = [Staffs(staff_name='謝宗佑'),]
 
 @config.handler.add(FollowEvent)
 def handle_follow(event):
@@ -83,6 +93,7 @@ def handle_follow(event):
 
 @config.handler.add(UnfollowEvent)
 def handle_unfollow(event):
+    config.logger.debug(event)
     unfollowing_user = get_or_create_user(event.source.user_id)
     print(f'Unfollow event from {unfollowing_user}')
 
@@ -114,4 +125,5 @@ def handle_message(event):
 
 
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True, host="0.0.0.0", port=5003)
