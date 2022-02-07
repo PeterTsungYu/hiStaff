@@ -1,7 +1,6 @@
-from flask import current_app as app
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint
 from datetime import datetime
 def strptime(time):
@@ -18,7 +17,7 @@ def strf_datetime(dt):
                 year=int(date_args[2]), month=int(datetime.strptime(date_args[0], "%b").month), day=int(date_args[1]), 
                 hour=int(time_args[0]), minute=int(time_args[1]), second=int(time_args[2]))
                 )
-
+                
 import config
 
 engine = create_engine(config.db_path, convert_unicode=True)
@@ -32,24 +31,8 @@ db_session = scoped_session(sessionmaker(autocommit=False, autoflush=True, bind=
 Base = declarative_base()
 Base.query = db_session.query_property()
 
-##======================DB==================================
-@app.before_first_request
-def init_tables():
-    result = init_db()
-    if result:
-        db_session.add_all(staff_lst) # a way to insert many query
-        db_session.commit()
-        config.logger.debug('create staffs')
-
-# an “on request end” event
-# automatically remove database sessions at the end of the request 
-# or when the application shuts down
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    db_session.remove()
-
 def init_db():
-    if inspect(engine).has_table('staffs'):
+    if inspect(engine).has_table('staffs_table'):
         return False
     else:    
         Base.metadata.create_all(bind=engine)
@@ -70,7 +53,7 @@ def get_or_create_user(user_id):
     return user
 
 class Users(Base):
-    __tablename__ = 'users'
+    __tablename__ = 'users_table'
     id = Column(String, primary_key=True)
     nick_name = Column(String)
     image_url = Column(String(length=256))
@@ -78,15 +61,28 @@ class Users(Base):
     def __repr__(self):
         return f'<User {self.nick_name!r}>'
 
+class CheckIn(Base):
+    __tablename__ = 'checkin_table'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    created_time = Column(DateTime, default=datetime.now())
+
+class CheckOut(Base):
+    __tablename__ = 'checkout_table'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    created_time = Column(DateTime, default=datetime.now())
+
 class Staffs(Base):
-    __tablename__ = 'staffs'
+    __tablename__ = 'staffs_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String)
     def __repr__(self):
         return f'<User {self.staff_name!r}>'
 
+Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
+Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 staff_lst = [Staffs(staff_name='謝宗佑'),]
-
 
 
 if __name__ == "__main__":

@@ -6,10 +6,8 @@ def init_app():
     app = Flask(__name__)
     with app.app_context():
         import routes
-        import db
         import dashboard
         
-        db.init_db()
         app = dashboard.init_dashboard(app)
         
         return app

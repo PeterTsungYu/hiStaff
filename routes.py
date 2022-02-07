@@ -9,9 +9,25 @@ from linebot.models import *
 
 # custom
 import config
-from db import get_or_create_user
+import db
 
 ##======================routes==================================
+@app.before_first_request
+def init_tables():
+    result = db.init_db()
+    if result:
+        db.db_session.add_all(db.staff_lst) # a way to insert many query
+        db.db_session.commit()
+        config.logger.debug('create staffs_table')
+
+# an “on request end” event
+# automatically remove database sessions at the end of the request 
+# or when the application shuts down
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.db_session.remove()
+
+
 @app.route('/')
 def home():
     """Landing page."""
@@ -25,7 +41,7 @@ def home():
 
 @config.handler.add(FollowEvent)
 def handle_follow(event):
-    get_or_create_user(event.source.user_id)
+    db.get_or_create_user(event.source.user_id)
 
     config.line_bot_api.reply_message(
             event.reply_token,
@@ -35,7 +51,7 @@ def handle_follow(event):
 @config.handler.add(UnfollowEvent)
 def handle_unfollow(event):
     config.logger.debug(event)
-    unfollowing_user = get_or_create_user(event.source.user_id)
+    unfollowing_user = db.get_or_create_user(event.source.user_id)
     print(f'Unfollow event from {unfollowing_user}')
 
 
@@ -60,6 +76,26 @@ def callback():
 
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+
+    user_id = event.source.user_id
+    user = db.get_or_create_user(user_id=user_id)
+    msg_text = str(event.message.text).lower()
+    msg_reply = None
+
+    staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
+    if staff_integrity != None:
+        if msg_text in ['check in']:
+            msg_reply = TextSendMessage(text=f'Hi {staff_integrity.staff_name}, welcome to ur office. Pls Process in the web')
+
+    if (msg_reply is None): 
+        msg_reply = [
+            TextSendMessage(text='''Not your business''')
+        ]
+    
     config.line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=event.message.text))
+        msg_reply
+        )
+
+if __name__ == "__main__":
+    pass
