@@ -1,3 +1,5 @@
+# Library
+from linebot.models import *
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
@@ -17,7 +19,8 @@ def strf_datetime(dt):
                 year=int(date_args[2]), month=int(datetime.strptime(date_args[0], "%b").month), day=int(date_args[1]), 
                 hour=int(time_args[0]), minute=int(time_args[1]), second=int(time_args[2]))
                 )
-                
+
+# Custom                
 import config
 
 engine = create_engine(config.db_path, convert_unicode=True)
@@ -58,6 +61,7 @@ class Users(Base):
     nick_name = Column(String)
     image_url = Column(String(length=256))
     created_time = Column(DateTime, default=datetime.now())
+    
     def __repr__(self):
         return f'<User {self.nick_name!r}>'
 
@@ -66,24 +70,129 @@ class CheckIn(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
+    
+    def __repr__(self):
+        return f'<CheckIn {self.id!r}>'
 
 class CheckOut(Base):
     __tablename__ = 'checkout_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
+    def __repr__(self):
+        return f'<CheckOut {self.id!r}>'
 
 class Staffs(Base):
     __tablename__ = 'staffs_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String)
     def __repr__(self):
-        return f'<User {self.staff_name!r}>'
+        return f'<Staff {self.staff_name!r}>'
 
 Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 staff_lst = [Staffs(staff_name='謝宗佑'),]
 
+##======================line_msg==================================
+def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
+    '''
+    check: 'checkin' or 'checkout'
+    '''
+    datetimepicker = DatetimePickerAction(
+                            label="moment",
+                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            mode='datetime',
+                            #initial, max, min
+                            )
+    bubble = BubbleContainer(
+                hero=ImageComponent(
+                size="full",
+                aspect_ratio="20:13",
+                aspect_mode="cover",
+                url=img_url,
+                ),
+                body=BoxComponent(
+                    layout="vertical",
+                    spacing="sm",
+                    contents=[
+                        TextComponent(
+                            text=staff_name,
+                            wrap=True,
+                            weight="bold",
+                            size="xl"),
+                        BoxComponent(
+                            layout="baseline",
+                            contents=[
+                                TextComponent(
+                                    text='check in',
+                                    wrap=True,
+                                    weight='bold',
+                                    size= "xl",
+                                    flex=0
+                                )
+                            ]
+                        ),
+                        TextComponent(
+                            margin='md',
+                            text=f"{check} @ {moment}",
+                            wrap=True,
+                            size='xs',
+                            color='#aaaaaa'
+                        )
+                    ]
+                ),
+                footer=BoxComponent(
+                    layout="vertical",
+                    spacing="sm",
+                    contents=[
+                        ButtonComponent(
+                            style="primary",
+                            color='#1DB446',
+                            action=datetimepicker
+                        ),
+                    ]
+                )
+            )
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, Clock!', contents=bubble)
+
+def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time'):
+    bubble = BubbleContainer(
+                direction='ltr',
+                body=BoxComponent(
+                    layout='vertical',
+                    spacing='sm',
+                    contents=[
+                        TextComponent(
+                            text=f"{check} {staff_name} @ {moment}",
+                            weight='bold',
+                            size='xl',
+                            wrap=True,
+                            contents=[]
+                        ),
+                    ]
+                ),
+                footer=BoxComponent(
+                    layout='vertical',
+                    spacing='sm',
+                    contents=[
+                        ButtonComponent(
+                            style='primary',
+                            action=PostbackAction(
+                                label="Revise",
+                                data=f'id=1&staff_name={staff_name}&check={check}',
+                            )
+                        ),
+                        ButtonComponent(
+                            style='primary',
+                            action=PostbackAction(
+                                label="That's it",
+                                data=f'id=2&staff_name={staff_name}&check={check}&moment={moment}',
+                            )
+                        )
+                    ]
+                )
+            )
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check} yourself!', contents=bubble)
 
 if __name__ == "__main__":
     pass
