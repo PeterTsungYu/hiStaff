@@ -103,6 +103,8 @@ def handle_message(event):
     if staff_integrity != None:
         if msg_text in ['check in']:
             msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name)
+        elif msg_text in ['check out']:
+            msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name)
 
     if (msg_reply is None): 
         msg_reply = [
@@ -147,7 +149,7 @@ def handle_postback(event):
                 if check == 'checkin':
                     last_entry = db.db_session.query(db.CheckIn).filter(db.CheckIn.staff_name == staff_name).order_by(db.CheckIn.id.desc()).first()
                     last_moment = last_entry.created_time
-                    if (now - moment).seconds >= 120:
+                    if (now.timestamp() - moment.timestamp()) >= 120:
                         msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
                     elif (now.year == last_moment.year) and (now.month == last_moment.month) and (now.day == last_moment.day):
                         msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
@@ -162,7 +164,25 @@ def handle_postback(event):
                         else:
                             msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')]  
                 else:
-                    pass
+                    last_entry = db.db_session.query(db.CheckOut).filter(db.CheckOut.staff_name == staff_name).order_by(db.CheckOut.id.desc()).first()
+                    if (moment.timestamp() - now.timestamp()) >= 120:
+                        msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
+                    elif last_entry != None:
+                        last_moment = last_entry.created_time
+                        if (now.year == last_moment.year) and (now.month == last_moment.month) and (now.day == last_moment.day):
+                            msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                        else:
+                            pass
+                    else:
+                        checkout = db.CheckOut(staff_name=staff_name, created_time=moment)
+                        db.db_session.add(checkout)
+                        db.db_session.commit()
+                        if (moment.hour > 17) :
+                            msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Good day, Worker!')]
+                        elif (moment.hour == 17) and (moment.hour < 30):
+                            msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Efficiency is your motto!')]
+                        else:
+                            msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
                 
 
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
