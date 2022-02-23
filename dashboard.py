@@ -1,6 +1,10 @@
+# library
 from distutils.log import debug
-from datetime import date
 from dash import Dash, dcc, html, callback, Input, Output
+from urllib.parse import urlparse
+
+# custom
+import db
 
 url_prefix = '/hiStaff_dashapp/'
 
@@ -75,6 +79,8 @@ def init_callbacks():
         [Input('url', 'pathname')]
         )
     def display_page(pathname):
+        print(pathname)
+        print(urlparse(pathname))
         if pathname == f'{url_prefix}checkin':
             return check_in_layout
         elif pathname == f'{url_prefix}checkout':

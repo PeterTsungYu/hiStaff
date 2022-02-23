@@ -1,5 +1,4 @@
 # pip3 install python-dotenv
-
 import os
 import logging
 from dotenv import load_dotenv

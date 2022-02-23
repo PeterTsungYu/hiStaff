@@ -23,6 +23,7 @@ def strf_datetime(dt):
 # Custom                
 import config
 
+
 engine = create_engine(config.db_path, convert_unicode=True)
 #print(engine)
 
@@ -35,11 +36,26 @@ Base = declarative_base()
 Base.query = db_session.query_property()
 
 def init_db():
+    #config.logger.info(inspect(engine).has_table('staffs_table'))
     if inspect(engine).has_table('staffs_table'):
-        return False
-    else:    
+        _staff_lst = db_session.query(Staffs).order_by(Staffs.id).all()
+
+        if len(staff_lst) == len(_staff_lst):
+            for i in range(len(staff_lst)):
+                if staff_lst[i].staff_name != _staff_lst[i].staff_name:
+                    db_session.query(Staffs).delete()
+                    db_session.add_all(staff_lst) # a way to insert many query
+                    break
+        else:
+            print(2)
+            db_session.query(Staffs).delete()
+            db_session.add_all(staff_lst) # a way to insert many query
+        
+    else:
         Base.metadata.create_all(bind=engine)
-        return True
+        db_session.add_all(staff_lst)
+    db_session.commit()
+    config.logger.debug(db_session.query(Staffs).all())
 
 
 def get_or_create_user(user_id):
@@ -91,7 +107,11 @@ class Staffs(Base):
 
 Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
-staff_lst = [Staffs(staff_name='謝宗佑'),]
+staff_lst = [
+    Staffs(staff_name='謝宗佑'),
+    Staffs(staff_name='佳嶸'),
+    #Staffs(staff_name='Jessie'),
+    ]
 
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
@@ -193,6 +213,9 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time'):
                 )
             )
     return FlexSendMessage(alt_text=f'Hi {staff_name}, {check} yourself!', contents=bubble)
+
+def reply_dash_msg():
+    pass
 
 if __name__ == "__main__":
     pass
