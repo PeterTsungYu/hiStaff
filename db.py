@@ -1,10 +1,10 @@
 # Library
 from linebot.models import *
-from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint, select
 from datetime import datetime
+import pandas as pd
 def strptime(time):
     if 't' in time:
         return datetime.strptime(time[2:], '%y-%m-%dt%H:%M')
@@ -113,6 +113,17 @@ staff_lst = [
     #Staffs(staff_name='Jessie'),
     ]
 
+class table_generator:
+    def __init__(self):
+        pass
+    def gen_table(self, staff_name):
+        df = pd.read_sql(
+            sql = select([CheckIn.created_time], CheckIn.staff_name == staff_name),
+            con = engine
+        )
+        formatted_df = df["created_time"].dt.strftime("%m/%d/%Y, %H:%M:%S").to_frame()
+        print(formatted_df)
+        return formatted_df
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
     '''

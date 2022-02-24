@@ -1,13 +1,15 @@
 # library
 from distutils.log import debug
-from dash import Dash, dcc, html, callback, Input, Output
+from dash import Dash, dcc, html, callback, Input, Output, dash_table
 from urllib.parse import urlparse, unquote, parse_qsl
+import dash_bootstrap_components as dbc
 
 # custom
 import db
 import config
 
 url_prefix = config.dash_prefix
+table_generator = db.table_generator()
 
 def init_dashboard(server):
     """Create a Plotly Dash dashboard."""
@@ -15,7 +17,7 @@ def init_dashboard(server):
         server=server,
         #requests_pathname_prefix='/hiStaff_dashapp/',
         routes_pathname_prefix=url_prefix+'/',
-        external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'],
+        external_stylesheets=[dbc.themes.BOOTSTRAP],
     )
 
     url = dcc.Location(id='url', refresh=False)
@@ -98,6 +100,43 @@ def init_callbacks():
         check_link.href = url_prefix + other_type + search
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
+        
+        df = table_generator.gen_table(staff)
+        check_table.children=[
+            dash_table.DataTable(
+                id='check-datatable',
+                columns=[
+                    {"name": i, "id": i, "deletable": False, "selectable": True} for i in df.columns
+                ],
+                data=df.to_dict('records'),
+                editable=True,
+                filter_action="native",
+                sort_action="native",
+                sort_mode="multi",
+                column_selectable="single",
+                row_selectable="multi",
+                row_deletable=True,
+                selected_columns=[],
+                selected_rows=[],
+                page_action="native",
+                page_current= 0,
+                page_size= 10,
+                style_cell={                # ensure adequate header width when text is shorter than cell's text
+                    'minWidth': 95, 'maxWidth': 95, 'width': 95
+                },
+                style_cell_conditional=[    # align text columns to left. By default they are aligned to right
+                    {
+                        'if': {'column_id': c},
+                        'textAlign': 'left'
+                    } for c in ['country', 'iso_alpha3']
+                ],
+                style_data={                # overflow cells' content into multiple lines
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                }
+            ),
+            html.Div(id='datatable-interactivity-container')
+        ]
 
         
         if f'{url_prefix}/check' in pathname:

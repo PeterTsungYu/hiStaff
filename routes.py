@@ -59,9 +59,9 @@ def home():
 def staff():
     d = dict(parse_qsl(request.args.get('liff.state')))
     if d.get('/checkin/name') != None:
-        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkin?staff={d.get("/checkin/name")}' #https://rvproxy.fun2go.energy/hiStaff_dashapp
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkin?staff={d.get("/checkin/name")}' #http://localhost:5003/hiStaff_dashapp/...
     elif d.get('/checkout/name') != None:
-        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkout?staff={d.get("/checkout/name")}' #https://rvproxy.fun2go.energy/hiStaff_dashapp
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkout?staff={d.get("/checkout/name")}' #http://localhost:5003/hiStaff_dashapp/...
     return redirect(redirect_url)
 
 
