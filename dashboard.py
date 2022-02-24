@@ -1,26 +1,28 @@
 # library
 from distutils.log import debug
 from dash import Dash, dcc, html, callback, Input, Output
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote, parse_qsl
 
 # custom
 import db
+import config
 
-url_prefix = '/hiStaff_dashapp/'
+url_prefix = config.dash_prefix
 
 def init_dashboard(server):
     """Create a Plotly Dash dashboard."""
     dash_app = Dash(
         server=server,
         #requests_pathname_prefix='/hiStaff_dashapp/',
-        routes_pathname_prefix=url_prefix,
+        routes_pathname_prefix=url_prefix+'/',
         external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'],
     )
 
+    url = dcc.Location(id='url', refresh=False)
     # Create Dash Layout
     dash_app.layout = html.Div(children=[
         # represents the browser address bar and doesn't render anything
-        dcc.Location(id='url', refresh=False),
+        url,
         # content will be rendered in this element
         html.Div(id='page-content', children=[])
     ])
@@ -33,58 +35,73 @@ def init_dashboard(server):
 
 def init_callbacks():
 
-    index_page = html.Div([
-        dcc.Link('Navigate to "CHECK IN TABLE"', href=f'{url_prefix}checkin'),
+    check_h1 = html.H1(id='check-h1')
+    check_table = html.Div(id='check-table')
+    check_link = dcc.Link(id='check-link', href=f'{url_prefix}/')
+    home_link = dcc.Link(id='home-link', href=f'{url_prefix}/')
+    index_dropdown = dcc.Dropdown(['checkin', 'checkout'], 'checkin', id='index-dropdown')
+    index_link = dcc.Link(id='index-link', href='')
+    
+    index_page = [html.Div([
+        index_dropdown,
         html.Br(),
-        dcc.Link('Navigate to "CHECK OUT TABLE"', href=f'{url_prefix}checkout'),
-    ])
+        index_link,
+    ])]
 
-    check_in_layout = html.Div([
-        html.H1('CHECK IN TABLE'),
-        dcc.Dropdown(['LA', 'NYC', 'MTL'], 'LA', id='page-1-dropdown'),
-        html.Div(id='check-in-table'),
+    check_layout = [html.Div([
+        check_h1,
+        check_table,
         html.Br(),
-        dcc.Link('Navigate to "CHECK OUT TABLE"', href=f'{url_prefix}checkout'),
+        check_link,
         html.Br(),
-        dcc.Link('Go back to home', href=f'{url_prefix}'),
-    ])
-    
-    check_out_layout = html.Div([
-        html.H1('CHECK OUT TABLE'),
-        dcc.Dropdown(['a', 'b', 'c'], 'LA', id='page-2-dropdown'),
-        html.Div(id='check-out-table'),
-        html.Br(),
-        dcc.Link('Navigate to "CHECK IN TABLE"', href=f'{url_prefix}checkin'),
-        html.Br(),
-        dcc.Link('Go back to home', href=f'{url_prefix}'),
-    ])
-    
+        home_link,
+    ])]
+
     @callback(
-        Output('check-in-table', 'children'),
-        [Input('page-1-dropdown', 'value')]
+        [
+            Output('index-link', 'children'),
+            Output('index-link', 'href'),
+            ],
+        [
+            Input('index-dropdown', 'value'),
+            Input('url', 'search'),
+            ]
         )
-    def page_1_dropdown(value):
-        return f'You have selected {value}'
-    
-    @callback(
-        Output('check-out-table', 'children'),
-        [Input('page-2-dropdown', 'value')]
-        )
-    def page_2_radios(value):
-        return f'You have selected {value}'
+    def index_linking(value, search):
+        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        children = staff + '/' + value
+        href = url_prefix + '/' + value + search 
+        config.logging.debug(href)
+        return children, href
     
     # Update the index
     @callback(
-        Output('page-content', 'children'),
-        [Input('url', 'pathname')]
+        [
+            Output('page-content', 'children'),
+            ],
+        [
+            Input('url', 'pathname'), 
+            Input('url', 'search'),
+            ]
         )
-    def display_page(pathname):
-        print(pathname)
-        print(urlparse(pathname))
-        if pathname == f'{url_prefix}checkin':
-            return check_in_layout
-        elif pathname == f'{url_prefix}checkout':
-            return check_out_layout
+    def display_page(pathname, search):
+        config.logging.debug([pathname, search])
+        check_type = pathname.split(f'{url_prefix}')[-1]
+        if 'checkin' in check_type:
+            other_type = '/checkout'
+        else:
+            other_type = '/checkin'
+        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        config.logging.debug([check_type, staff])
+        check_h1.children = staff + check_type
+        check_link.children = staff + other_type
+        check_link.href = url_prefix + other_type + search
+        home_link.children = staff + '/Sweet Home'
+        home_link.href = url_prefix + search
+
+        
+        if f'{url_prefix}/check' in pathname:
+            return check_layout
         else:
             return index_page
         # You could also return a 404 "URL not found" page here

@@ -1,10 +1,12 @@
+from cgi import test
 from flask import current_app as app
-from flask import render_template, request, abort
+from flask import render_template, request, abort, redirect, url_for
+import requests 
 from linebot.exceptions import (
     InvalidSignatureError
 )
 from linebot.models import *
-from urllib.parse import quote, parse_qsl
+from urllib.parse import quote, parse_qsl, parse_qs
 from datetime import datetime
 def strptime(time) -> datetime:   
     if 't' in time:
@@ -52,6 +54,16 @@ def home():
         template='home-template',
         body="This is a homepage served with Flask."
     ) 
+
+@app.route('/staff')
+def staff():
+    d = dict(parse_qsl(request.args.get('liff.state')))
+    if d.get('/checkin/name') != None:
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkin?staff={d.get("/checkin/name")}' #https://rvproxy.fun2go.energy/hiStaff_dashapp
+    elif d.get('/checkout/name') != None:
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkout?staff={d.get("/checkout/name")}' #https://rvproxy.fun2go.energy/hiStaff_dashapp
+    return redirect(redirect_url)
+
 
 @config.handler.add(FollowEvent)
 def handle_follow(event):
@@ -103,7 +115,16 @@ def handle_message(event):
         elif msg_text in ['check out']:
             msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name)
         elif msg_text in ['personal dashboard']:
-            pass
+            msg_reply = TemplateSendMessage(alt_text='Your dashboard',
+                                            template=ButtonsTemplate(text='Peek ur dashboard',
+                                                                    actions=[URIAction(label=f"{staff_integrity.staff_name}'s CheckIn Dash", 
+                                                                                    uri=f'{config.dash_liff}/checkin/name={staff_integrity.staff_name}'),
+                                                                            URIAction(label=f"{staff_integrity.staff_name}'s CheckOut Dash", 
+                                                                                    uri=f'{config.dash_liff}/checkout/name={staff_integrity.staff_name}')
+                                                                                    ]
+                                                                )
+                                                                )
+
 
     if (msg_reply is None): 
         msg_reply = [

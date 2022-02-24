@@ -42,3 +42,7 @@ fh.setFormatter(formatter)
 
 logger.addHandler(ch)
 logger.addHandler(fh)
+
+# dashboard
+dash_prefix = '/hiStaff_dashapp'
+dash_liff = 'https://liff.line.me/1656918953-wyNK7Kqd'

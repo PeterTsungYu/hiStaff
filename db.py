@@ -55,7 +55,7 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         db_session.add_all(staff_lst)
     db_session.commit()
-    config.logger.debug(db_session.query(Staffs).all())
+    #config.logger.debug(db_session.query(Staffs).all())
 
 
 def get_or_create_user(user_id):
