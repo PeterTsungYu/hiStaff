@@ -101,7 +101,7 @@ def init_callbacks():
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
         
-        df = table_generator.gen_table(staff)
+        df = table_generator.gen_table(staff_name=staff)
         check_table.children=[
             dash_table.DataTable(
                 id='check-datatable',

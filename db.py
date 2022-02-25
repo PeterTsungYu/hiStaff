@@ -3,7 +3,7 @@ from linebot.models import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint, select
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 def strptime(time):
     if 't' in time:
@@ -22,6 +22,7 @@ def strf_datetime(dt):
 
 # Custom                
 import config
+from hicalendar import hiCalendar
 
 
 engine = create_engine(config.db_path, convert_unicode=True)
@@ -114,16 +115,27 @@ staff_lst = [
     ]
 
 class table_generator:
-    def __init__(self):
-        pass
-    def gen_table(self, staff_name):
+    def __init__(self, year, month, day, month_range, staff_name):
+        self.calendar=hiCalendar(year, month, day, month_range)
+        self.staff_name=staff_name
+        self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
+
+    def gen_table(self, table_cls):
         df = pd.read_sql(
-            sql = select([CheckIn.created_time], CheckIn.staff_name == staff_name),
+            sql = db_session.query(table_cls).filter(table_cls.staff_name==self.staff_name).statement,
             con = engine
         )
-        formatted_df = df["created_time"].dt.strftime("%m/%d/%Y, %H:%M:%S").to_frame()
-        print(formatted_df)
-        return formatted_df
+        return df
+
+    def check_table(self):
+        out_lst = [i.created_time.date() for i in self.staff.checkout_time]
+        out_series = pd.Series([i if i in out_lst else None for i in self.calendar.date_index])
+        in_lst = [i.created_time.date() for i in self.staff.checkin_time]
+        df = pd.DataFrame(data=[self.calendar.date_index,])
+        
+        #formatted_df = df["created_time"].dt.strftime("%m/%d/%Y, %H:%M:%S").to_frame()
+        #print(formatted_df)
+
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
     '''
