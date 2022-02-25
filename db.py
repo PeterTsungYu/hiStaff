@@ -128,13 +128,19 @@ class table_generator:
         return df
 
     def check_table(self):
-        out_lst = [i.created_time.date() for i in self.staff.checkout_time]
-        out_series = pd.Series([i if i in out_lst else None for i in self.calendar.date_index])
-        in_lst = [i.created_time.date() for i in self.staff.checkin_time]
-        df = pd.DataFrame(data=[self.calendar.date_index,])
+        out_dict = {}
+        for i in self.staff.checkout_time:
+            out_dict[i.created_time.date()]=i.created_time
+        out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in self.calendar.date_index.date]
+
+        in_dict = {}
+        for i in self.staff.checkin_time:
+            in_dict[i.created_time.date()]=i.created_time
+        in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in self.calendar.date_index.date]
         
-        #formatted_df = df["created_time"].dt.strftime("%m/%d/%Y, %H:%M:%S").to_frame()
-        #print(formatted_df)
+        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst})
+        df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
+        return df
 
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):

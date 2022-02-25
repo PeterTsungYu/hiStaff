@@ -9,7 +9,6 @@ import db
 import config
 
 url_prefix = config.dash_prefix
-table_generator = db.table_generator()
 
 def init_dashboard(server):
     """Create a Plotly Dash dashboard."""
@@ -101,7 +100,9 @@ def init_callbacks():
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
         
-        df = table_generator.gen_table(staff_name=staff)
+        table_generator = db.table_generator(2022,2,1,1,staff)
+        df = table_generator.check_table()
+        #df = table_generator.gen_table(staff_name=staff)
         check_table.children=[
             dash_table.DataTable(
                 id='check-datatable',
@@ -128,7 +129,7 @@ def init_callbacks():
                     {
                         'if': {'column_id': c},
                         'textAlign': 'left'
-                    } for c in ['country', 'iso_alpha3']
+                    } for c in ['date', 'checkin', 'checkout']
                 ],
                 style_data={                # overflow cells' content into multiple lines
                     'whiteSpace': 'normal',
