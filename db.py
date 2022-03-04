@@ -115,8 +115,8 @@ staff_lst = [
     ]
 
 class table_generator:
-    def __init__(self, year, month, day, month_range, staff_name):
-        self.calendar=hiCalendar(year, month, day, month_range)
+    def __init__(self, start, end, staff_name):
+        self.calendar=hiCalendar(start, end)
         self.staff_name=staff_name
         self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
 

@@ -10,10 +10,9 @@ class hiCalendar(AbstractHolidayCalendar):
         Holiday('Labour Day', month=5, day=1)
     ]
 
-    def __init__(self, year, month, day, month_range):
-        self.year=year
-        self.start=date(self.year, month, day)
-        self.end=self.start + pd.offsets.MonthEnd(month_range)
+    def __init__(self, start, end):
+        self.start=start
+        self.end=end
         self.bdate_index = pd.bdate_range(start=self.start,
                                             end=self.end,
                                             freq=CDay(calendar=self))
@@ -40,7 +39,8 @@ class hiCalendar(AbstractHolidayCalendar):
 #print(se.groupby(se.dt.month).count().head())
 
 if __name__ == "__main__":
-    cal = hiCalendar(2022,1,1,12)
+    print(date(2022, 3, 4))
+    cal = hiCalendar(date(2022, 3, 4), date(2022, 3, 5))
     print(cal.bdays_bool_df().columns)
     #print(cal.date_index())
     #print(cal.holidays_index())
