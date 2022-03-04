@@ -38,46 +38,19 @@ def init_dashboard(server):
 
 def init_callbacks():
 
+    now_date = datetime.now().date()
+
     check_h1 = html.H1(id='check_h1')
     check_datepicker = dcc.DatePickerRange(
                         id='check_datepicker',
                         min_date_allowed=date(1992, 1, 25),
                         max_date_allowed=date(2092, 1, 25),
-                        initial_visible_month=datetime.now(),
-                        start_date=datetime.now(),
-                        end_date=datetime.now() - pd.offsets.MonthEnd(1)
+                        initial_visible_month=now_date,
+                        start_date=(now_date  - pd.offsets.MonthBegin(1)).date(),
+                        end_date=now_date
         )
     check_date_string = html.Div(id='check_date_string')
-    check_datatable =dash_table.DataTable(
-                    id='check_datatable',
-                    #columns=[{"name": i, "id": i, "deletable": False, "selectable": True} for i in check_df.columns],
-                    #data=check_df.to_dict('records'),
-                    editable=True,
-                    filter_action="native",
-                    sort_action="native",
-                    sort_mode="multi",
-                    column_selectable="single",
-                    row_selectable="multi",
-                    row_deletable=True,
-                    selected_columns=[],
-                    selected_rows=[],
-                    page_action="native",
-                    page_current= 0,
-                    page_size= 10,
-                    style_cell={                # ensure adequate header width when text is shorter than cell's text
-                        'minWidth': 95, 'maxWidth': 95, 'width': 95
-                    },
-                    style_cell_conditional=[    # align text columns to left. By default they are aligned to right
-                        {
-                            'if': {'column_id': c},
-                            'textAlign': 'left'
-                        } for c in ['date', 'checkin', 'checkout']
-                    ],
-                    style_data={                # overflow cells' content into multiple lines
-                        'whiteSpace': 'normal',
-                        'height': 'auto'
-                    }
-                )
+    check_datatable_div = html.Div(id='check_datatable_div')
     check_link = dcc.Link(id='check_link', href=f'{url_prefix}/')
     home_link = dcc.Link(id='home_link', href=f'{url_prefix}/')
     index_dropdown = dcc.Dropdown(['checkin', 'checkout'], 'checkin', id='index_dropdown')
@@ -93,7 +66,7 @@ def init_callbacks():
     check_layout = [html.Div([
         check_h1,
         check_datepicker,
-        check_datatable,
+        check_datatable_div,
         check_date_string,
         html.Br(),
         check_link,
@@ -104,7 +77,7 @@ def init_callbacks():
 
     @callback(
         [
-            Output('check_datatable', 'data'),
+            Output('check_datatable_div', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -114,13 +87,11 @@ def init_callbacks():
         )
     def update_output(start_date, end_date, search):
         staff = dict(parse_qsl(unquote(search))).get('?staff')
-        start = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S.%f").date()
-        end = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%f").date()
-        print(start)
-        print(type(start))
-        check_df = db.table_generator(start, end, staff).check_table()
+        print(start_date)
+        print(end_date)
+        check_df = db.table_generator(start_date, end_date, staff).check_table()
         return [
-            check_df.to_dict('records'), 
+            check_df, 
         ]
 
         
@@ -142,6 +113,7 @@ def init_callbacks():
         config.logging.debug(href)
         return children, href
     
+
     # Update the index
     @callback(
         [
@@ -166,7 +138,7 @@ def init_callbacks():
         check_link.href = url_prefix + other_type + search
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
-        
+
         if f'{url_prefix}/check' in pathname:
             return check_layout
         else:

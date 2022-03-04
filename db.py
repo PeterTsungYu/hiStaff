@@ -5,6 +5,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint, select
 from datetime import datetime, date
 import pandas as pd
+from dash.dash_table import DataTable
 def strptime(time):
     if 't' in time:
         return datetime.strptime(time[2:], '%y-%m-%dt%H:%M')
@@ -140,7 +141,37 @@ class table_generator:
         
         df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
-        return df
+        check_datatable = DataTable(
+                            id='check_datatable',
+                            columns=[{"name": i, "id": i, "deletable": False, "selectable": True} for i in df.columns],
+                            data=df.to_dict('records'),
+                            editable=True,
+                            filter_action="native",
+                            sort_action="native",
+                            sort_mode="multi",
+                            column_selectable="single",
+                            row_selectable="multi",
+                            row_deletable=True,
+                            selected_columns=[],
+                            selected_rows=[],
+                            page_action="native",
+                            page_current= 0,
+                            page_size= 10,
+                            style_cell={                # ensure adequate header width when text is shorter than cell's text
+                                'minWidth': 95, 'maxWidth': 95, 'width': 95
+                            },
+                            style_cell_conditional=[    # align text columns to left. By default they are aligned to right
+                                {
+                                    'if': {'column_id': c},
+                                    'textAlign': 'left'
+                                } for c in ['date', 'checkin', 'checkout']
+                            ],
+                            style_data={                # overflow cells' content into multiple lines
+                                'whiteSpace': 'normal',
+                                'height': 'auto'
+                            }
+                        )
+        return check_datatable
 
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
