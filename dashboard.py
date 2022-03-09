@@ -1,10 +1,13 @@
 # library
 from distutils.log import debug
-from dash import Dash, dcc, html, callback, Input, Output, dash_table
+from dash import Dash, dcc, html, callback, Input, Output, dash_table, State
+from dash.dash_table import DataTable
 from urllib.parse import urlparse, unquote, parse_qsl
 import dash_bootstrap_components as dbc
 from datetime import datetime, date
 import pandas as pd
+import json
+import numpy as np
 
 # custom
 import db
@@ -40,6 +43,7 @@ def init_callbacks():
 
     now_date = datetime.now().date()
 
+    # dash components
     check_h1 = html.H1(id='check_h1')
     check_datepicker = dcc.DatePickerRange(
                         id='check_datepicker',
@@ -50,52 +54,141 @@ def init_callbacks():
                         end_date=now_date
         )
     check_date_string = html.Div(id='check_date_string')
+    check_button = html.Button(id='check_button', n_clicks=0, children='Edit')
     check_datatable_div = html.Div(id='check_datatable_div')
     check_link = dcc.Link(id='check_link', href=f'{url_prefix}/')
     home_link = dcc.Link(id='home_link', href=f'{url_prefix}/')
     index_dropdown = dcc.Dropdown(['checkin', 'checkout'], 'checkin', id='index_dropdown')
     index_link = dcc.Link(id='index_link', href='')
+    def check_table(check_df):
+        check_datatable = DataTable(
+                            id='check_datatable',
+                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False} for i in check_df.columns],
+                            data=check_df.to_dict('records'),
+                            editable=True,
+                            filter_action="native",
+                            sort_action="native",
+                            sort_mode="multi",
+                            column_selectable=False,
+                            row_selectable=False,
+                            row_deletable=False,
+                            selected_columns=[],
+                            selected_rows=[],
+                            page_action="native",
+                            page_current= 0,
+                            page_size= 10,
+                            style_cell={                # ensure adequate header width when text is shorter than cell's text
+                                'minWidth': 95, 'maxWidth': 95, 'width': 95,
+                                'overflow': 'hidden',
+                                'textOverflow': 'ellipsis',
+                                'maxWidth': 0,
+                            },
+                            style_cell_conditional=[    # align text columns to left. By default they are aligned to right
+                                {
+                                    'if': {'column_id': c},
+                                    'textAlign': 'left'
+                                } for c in ['date', 'checkin', 'checkout']
+                            ],
+                            style_data={                # overflow cells' content into multiple lines
+                                'whiteSpace': 'normal',
+                                'height': 'auto'
+                            },
+                            tooltip_data=[
+                                {
+                                    column: {'value': f'Edit with following format: "HH:MM:SS"', 'type': 'markdown'}
+                                    for column, value in row.items()
+                                } for row in check_df.to_dict('records')
+                            ],
+                            tooltip_delay=0,
+                            tooltip_duration=None
+                        )
+        return check_datatable
+    
+    # dcc store
+    personal_data_store = dcc.Store(id='personal_data_store')
+    previous_check_store = dcc.Store(id='previous_check_store')
 
     
+    # dash layouts
     index_page = [html.Div([
         index_dropdown,
         html.Br(),
         index_link,
+        personal_data_store,
     ])]
 
     check_layout = [html.Div([
         check_h1,
         check_datepicker,
         check_datatable_div,
-        check_date_string,
+        check_button,
         html.Br(),
         check_link,
         html.Br(),
         home_link,
+        personal_data_store,
+        previous_check_store,
     ])]
 
 
+    # datepicker for check_table
     @callback(
         [
             Output('check_datatable_div', 'children'),
+            Output('previous_check_store', 'data'),
             ],
         [
             Input('check_datepicker', 'start_date'),
             Input('check_datepicker', 'end_date'),
             Input('url', 'search'),
-            ]
+            ],
         )
-    def update_output(start_date, end_date, search):
+    def datepicker_check_table(start_date, end_date, search):
+        print(f'{search} from datepicker_check_table')
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         print(start_date)
         print(end_date)
-        check_df = db.table_generator(start_date, end_date, staff).check_table()
+        check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
         return [
-            check_df, 
+            check_table(check_df), check_df.to_json(orient='split', date_format='iso')
         ]
 
-        
 
+    # update the table         
+    @callback(
+    [
+        Output('check_datatable', 'data'),
+        ],
+    [
+        Input('check_button', 'n_clicks'),
+        ],
+    [
+        State('check_button', 'n_clicks_timestamp'),
+        State('check_datatable', 'data'),
+        State('previous_check_store', 'data'),
+        ]
+    )
+    def update_check_data(n_clicks, n_clicks_timestamp, data, data_previous):
+        #print(data) # list of dictionaries of str or None
+        #print(json.loads(data_previous))
+        if (data != None) and (data_previous) != None:
+            df = pd.DataFrame(data=data).set_index('date')
+            df_previous = pd.read_json(data_previous, orient='split').set_index('date')
+            print(df)
+            print(df_previous)
+            mask = df.ne(df_previous)
+            df_diff = df[mask].dropna(how="all", axis="columns").dropna(how="all", axis="rows")
+            print(df_diff)
+            for index, row in df_diff.iterrows():
+                #print(row)
+                for col, value in row.items():
+                    #print(type(value))
+                    if str(value).strip() != '':
+                        print(col, value)
+        return [data]
+
+
+    # update index links
     @callback(
         [
             Output('index_link', 'children'),
@@ -107,6 +200,7 @@ def init_callbacks():
             ]
         )
     def index_linking(value, search):
+        print(f'{search} from index_linking')
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         children = staff + '/' + value
         href = url_prefix + '/' + value + search 
@@ -114,7 +208,7 @@ def init_callbacks():
         return children, href
     
 
-    # Update the index
+    # route to check_layout / index_page
     @callback(
         [
             Output('page_content', 'children'),
@@ -125,13 +219,17 @@ def init_callbacks():
             ]
         )
     def display_page(pathname, search):
+        print(f'{search} from display_page')
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
         if 'checkin' in check_type:
             other_type = '/checkout'
         else:
             other_type = '/checkin'
+        
         staff = dict(parse_qsl(unquote(search))).get('?staff')
+        personal_data_store.data = {'staff':staff}
+
         config.logging.debug([check_type, staff])
         check_h1.children = staff + check_type
         check_link.children = staff + other_type
