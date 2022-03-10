@@ -53,9 +53,14 @@ def init_callbacks():
                         start_date=(now_date  - pd.offsets.MonthBegin(1)).date(),
                         end_date=now_date
         )
-    check_date_string = html.Div(id='check_date_string')
-    check_button = html.Button(id='check_button', n_clicks=0, children='Edit')
     check_datatable_div = html.Div(id='check_datatable_div')
+    sum_string = html.Div(id='sum_string')
+    change_string = html.Div(id='change_string')
+    check_button = dcc.ConfirmDialogProvider(
+        children=html.Button('Edit',),
+        id='check_button',
+        message='Ready to submit your change to your working time data. Pls double make sure it.'
+        )
     check_link = dcc.Link(id='check_link', href=f'{url_prefix}/')
     home_link = dcc.Link(id='home_link', href=f'{url_prefix}/')
     index_dropdown = dcc.Dropdown(['checkin', 'checkout'], 'checkin', id='index_dropdown')
@@ -63,7 +68,7 @@ def init_callbacks():
     def check_table(check_df):
         check_datatable = DataTable(
                             id='check_datatable',
-                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False} for i in check_df.columns],
+                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin[time]', 'checkout[time]'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
                             data=check_df.to_dict('records'),
                             editable=True,
                             filter_action="native",
@@ -96,8 +101,12 @@ def init_callbacks():
                             tooltip_data=[
                                 {
                                     column: {'value': f'Edit with following format: "HH:MM:SS"', 'type': 'markdown'}
+                                    if column in ['checkin[time]', 'checkout[time]']
+                                    else f"{value} [hr]"
                                     for column, value in row.items()
-                                } for row in check_df.to_dict('records')
+                                    
+                                } 
+                                for row in check_df.to_dict('records')
                             ],
                             tooltip_delay=0,
                             tooltip_duration=None
@@ -107,6 +116,8 @@ def init_callbacks():
     # dcc store
     personal_data_store = dcc.Store(id='personal_data_store')
     previous_check_store = dcc.Store(id='previous_check_store')
+    agg_check_store = dcc.Store(id='agg_check_store')
+    check_changes_store = dcc.Store(id='check_changes_store')
 
     
     # dash layouts
@@ -121,6 +132,8 @@ def init_callbacks():
         check_h1,
         check_datepicker,
         check_datatable_div,
+        sum_string,
+        change_string,
         check_button,
         html.Br(),
         check_link,
@@ -128,6 +141,8 @@ def init_callbacks():
         home_link,
         personal_data_store,
         previous_check_store,
+        agg_check_store,
+        check_changes_store,
     ])]
 
 
@@ -136,6 +151,8 @@ def init_callbacks():
         [
             Output('check_datatable_div', 'children'),
             Output('previous_check_store', 'data'),
+            Output('agg_check_store', 'data'),
+            Output('sum_string', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -149,8 +166,12 @@ def init_callbacks():
         print(start_date)
         print(end_date)
         check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
+        agg_check = check_df['aggregation[hr]'].iloc[-1]
         return [
-            check_table(check_df), check_df.to_json(orient='split', date_format='iso')
+            check_table(check_df), 
+            check_df.to_json(orient='split', date_format='iso'),
+            agg_check,
+            f"This month till now, u've worked for {agg_check} [hr]."
         ]
 
 
@@ -158,34 +179,47 @@ def init_callbacks():
     @callback(
     [
         Output('check_datatable', 'data'),
+        Output('change_string', 'children'),
+        Output('check_changes_store', 'data')
         ],
     [
-        Input('check_button', 'n_clicks'),
+        Input('check_button', 'submit_n_clicks'),
         ],
     [
-        State('check_button', 'n_clicks_timestamp'),
+        State('check_button', 'submit_n_clicks_timestamp'),
         State('check_datatable', 'data'),
         State('previous_check_store', 'data'),
         ]
     )
-    def update_check_data(n_clicks, n_clicks_timestamp, data, data_previous):
+    def update_check_data(submit_n_clicks, submit_n_clicks_timestamp, data, data_previous):
         #print(data) # list of dictionaries of str or None
         #print(json.loads(data_previous))
+        print(submit_n_clicks_timestamp)
+        print(submit_n_clicks)
         if (data != None) and (data_previous) != None:
             df = pd.DataFrame(data=data).set_index('date')
             df_previous = pd.read_json(data_previous, orient='split').set_index('date')
-            print(df)
-            print(df_previous)
+            #print(df)
+            #print(df_previous)
             mask = df.ne(df_previous)
-            df_diff = df[mask].dropna(how="all", axis="columns").dropna(how="all", axis="rows")
-            print(df_diff)
+            df_diff = df[mask]
+            #print(df_diff)
+            in_changes = {}
+            out_changes = {}
             for index, row in df_diff.iterrows():
-                #print(row)
                 for col, value in row.items():
-                    #print(type(value))
-                    if str(value).strip() != '':
-                        print(col, value)
-        return [data]
+                    if str(value).strip() not in ('', 'None', 'nan'):
+                        if 'checkin' in col: 
+                            in_changes[index] = value
+                        elif 'checkout' in col:
+                            out_changes[index] = value
+            changes = {'checkin':in_changes, 'checkout':out_changes}
+
+        return [
+            data,
+            json.dumps(changes),
+            json.dumps(changes),
+            ]
 
 
     # update index links

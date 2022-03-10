@@ -138,7 +138,14 @@ class table_generator:
             in_dict[i.created_time.date()]=i.created_time
         in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in self.calendar.date_index.date]
         
-        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst})
+        worktime_dict = {}
+        for i in self.calendar.date_index.date:
+            if (in_dict.get(i) != None) and (out_dict.get(i) != None):
+                worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
+        worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in self.calendar.date_index.date]
+        agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
+
+        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin[time]':in_lst, 'checkout[time]':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
         return df
 
