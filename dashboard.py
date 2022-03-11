@@ -184,6 +184,7 @@ def init_callbacks():
         ],
     [
         Input('check_button', 'submit_n_clicks'),
+        Input('url', 'search'),
         ],
     [
         State('check_button', 'submit_n_clicks_timestamp'),
@@ -191,29 +192,43 @@ def init_callbacks():
         State('previous_check_store', 'data'),
         ]
     )
-    def update_check_data(submit_n_clicks, submit_n_clicks_timestamp, data, data_previous):
+    def update_check_data(submit_n_clicks, search, submit_n_clicks_timestamp, data, data_previous):
         #print(data) # list of dictionaries of str or None
         #print(json.loads(data_previous))
         print(submit_n_clicks_timestamp)
         print(submit_n_clicks)
+        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+
         if (data != None) and (data_previous) != None:
             df = pd.DataFrame(data=data).set_index('date')
             df_previous = pd.read_json(data_previous, orient='split').set_index('date')
-            #print(df)
-            #print(df_previous)
+            print(df)
+            print(df_previous)
             mask = df.ne(df_previous)
             df_diff = df[mask]
-            #print(df_diff)
+            print(df_diff)
             in_changes = {}
             out_changes = {}
             for index, row in df_diff.iterrows():
                 for col, value in row.items():
                     if str(value).strip() not in ('', 'None', 'nan'):
-                        if 'checkin' in col: 
-                            in_changes[index] = value
+                        if 'checkin' in col:
+                            print(datetime.strptime(index.split(',')[0]+value, "%m/%d/%Y%H:%M:%S"))
+                            print(value) 
+                            in_changes[staff_name] = value
                         elif 'checkout' in col:
-                            out_changes[index] = value
+                            out_changes[staff_name] = value
             changes = {'checkin':in_changes, 'checkout':out_changes}
+
+            print('here')
+            
+            staff = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name==staff_name).scalar()
+            print(staff.checkin_time)
+            '''db.db_session.query().\
+            filter(User.username == form.username.data).\
+            update({"no_of_logins": (User.no_of_logins +1)})
+            session.commit()
+            '''
 
         return [
             data,
