@@ -145,7 +145,7 @@ class table_generator:
         worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in self.calendar.date_index.date]
         agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
 
-        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin[time]':in_lst, 'checkout[time]':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
+        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
         return df
 

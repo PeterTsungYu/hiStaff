@@ -115,7 +115,7 @@ def handle_message(event):
         elif msg_text in ['check out']:
             msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name)
         elif msg_text in ['personal dashboard']:
-            msg_reply = TemplateSendMessage(alt_text='Your dashboard',
+            msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
                                             template=ButtonsTemplate(text='Peek ur dashboard',
                                                                     actions=[URIAction(label=f"{staff_integrity.staff_name}'s CheckIn Dash", 
                                                                                     uri=f'{config.dash_liff}/checkin/name={staff_integrity.staff_name}'),
@@ -123,7 +123,9 @@ def handle_message(event):
                                                                                     uri=f'{config.dash_liff}/checkout/name={staff_integrity.staff_name}')
                                                                                     ]
                                                                 )
-                                                                )
+                                                                ),
+                        TextSendMessage(text=f'{config.dash_liff}/checkin/name={staff_integrity.staff_name}')
+                        ]
 
 
     if (msg_reply is None): 

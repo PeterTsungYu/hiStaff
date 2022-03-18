@@ -24,7 +24,7 @@ def init_dashboard(server):
         external_stylesheets=[dbc.themes.BOOTSTRAP],
     )
 
-    url = dcc.Location(id='url', refresh=False)
+    url = dcc.Location(id='url', refresh=True)
     # Create Dash Layout
     dash_app.layout = html.Div(children=[
         # represents the browser address bar and doesn't render anything
@@ -66,9 +66,9 @@ def init_callbacks():
     index_dropdown = dcc.Dropdown(['checkin', 'checkout'], 'checkin', id='index_dropdown')
     index_link = dcc.Link(id='index_link', href='')
     def check_table(check_df):
-        check_datatable = DataTable(
+        datatable = DataTable(
                             id='check_datatable',
-                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin[time]', 'checkout[time]'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
+                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
                             data=check_df.to_dict('records'),
                             editable=True,
                             filter_action="native",
@@ -83,7 +83,7 @@ def init_callbacks():
                             page_current= 0,
                             page_size= 10,
                             style_cell={                # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': 95, 'maxWidth': 95, 'width': 95,
+                                'minWidth': 65, 'maxWidth': 95, 'width': 95,
                                 'overflow': 'hidden',
                                 'textOverflow': 'ellipsis',
                                 'maxWidth': 0,
@@ -96,12 +96,12 @@ def init_callbacks():
                             ],
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
-                                'height': 'auto'
+                                'height': 30
                             },
                             tooltip_data=[
                                 {
                                     column: {'value': f'Edit with following format: "HH:MM:SS"', 'type': 'markdown'}
-                                    if column in ['checkin[time]', 'checkout[time]']
+                                    if column in ['checkin', 'checkout']
                                     else f"{value} [hr]"
                                     for column, value in row.items()
                                     
@@ -111,7 +111,7 @@ def init_callbacks():
                             tooltip_delay=0,
                             tooltip_duration=None
                         )
-        return check_datatable
+        return datatable
     
     # dcc store
     personal_data_store = dcc.Store(id='personal_data_store')
@@ -171,69 +171,124 @@ def init_callbacks():
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
             agg_check,
-            f"This month till now, u've worked for {agg_check} [hr]."
+            f"This month till now, u've worked for {agg_check} [hr].",
         ]
 
 
     # update the table         
     @callback(
     [
-        Output('check_datatable', 'data'),
-        Output('change_string', 'children'),
-        Output('check_changes_store', 'data')
+        Output('url', 'refresh'),
+        Output('url', 'href'),
+        Output('change_string', 'children'), 
         ],
+    Input('check_button', 'submit_n_clicks'),
     [
-        Input('check_button', 'submit_n_clicks'),
-        Input('url', 'search'),
-        ],
-    [
+        State('url', 'search'),
+        State('url', 'pathname'),
+        State('check_datepicker', 'start_date'),
+        State('check_datepicker', 'end_date'),
         State('check_button', 'submit_n_clicks_timestamp'),
         State('check_datatable', 'data'),
         State('previous_check_store', 'data'),
-        ]
+        ],
+    prevent_initial_call=False,
     )
-    def update_check_data(submit_n_clicks, search, submit_n_clicks_timestamp, data, data_previous):
+    def update_check_data(submit_n_clicks, search, pathname, start_date, end_date, submit_n_clicks_timestamp, data, data_previous):
         #print(data) # list of dictionaries of str or None
         #print(json.loads(data_previous))
-        print(submit_n_clicks_timestamp)
-        print(submit_n_clicks)
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
-
         if (data != None) and (data_previous) != None:
-            df = pd.DataFrame(data=data).set_index('date')
-            df_previous = pd.read_json(data_previous, orient='split').set_index('date')
+            df = pd.DataFrame(data=data)
+            df_previous = pd.read_json(data_previous, orient='split')
             print(df)
             print(df_previous)
             mask = df.ne(df_previous)
             df_diff = df[mask]
             print(df_diff)
-            in_changes = {}
-            out_changes = {}
+            changes = {}
+            count = 0
             for index, row in df_diff.iterrows():
                 for col, value in row.items():
-                    if str(value).strip() not in ('', 'None', 'nan'):
+                    if col not in ('checkin', 'checkout'):
+                        continue
+                    if str(value).strip() not in ('None', 'nan'):
+                        date = df['date'][index].split(',')[0]
+                        if value != '':
+                            print(value, date)
+                            current_time = value
+                            current_datetime = date + '/' + current_time
+                        else:
+                            current_datetime = None
+                        
                         if 'checkin' in col:
-                            print(datetime.strptime(index.split(',')[0]+value, "%m/%d/%Y%H:%M:%S"))
-                            print(value) 
-                            in_changes[staff_name] = value
+                            pre_time = df_previous['checkin'][index]
                         elif 'checkout' in col:
-                            out_changes[staff_name] = value
-            changes = {'checkin':in_changes, 'checkout':out_changes}
+                            pre_time = df_previous['checkout'][index]
+                        
+                        if (pre_time != None) and (pre_time != ''):
+                            pre_datetime = date + '/' + pre_time
+                        else:
+                            pre_datetime = None
+                        # include the other table ... to compare the other for time diff
+                        changes[f'{count}'] = {'col':col, 'previous':pre_datetime, 'current':current_datetime}
+                        count += 1
 
-            print('here')
-            
-            staff = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name==staff_name).scalar()
-            print(staff.checkin_time)
-            '''db.db_session.query().\
-            filter(User.username == form.username.data).\
-            update({"no_of_logins": (User.no_of_logins +1)})
-            session.commit()
-            '''
-
+            for key, value in changes.items():
+                print(key, value)
+                col = f"{value['col']}"
+                if 'checkin' in col:
+                    table = db.CheckIn
+                elif 'checkout' in col:
+                    table = db.CheckOut
+                pre = value['previous']
+                cur = value['current']
+                if (cur == None) and (pre == None):
+                    continue
+                elif cur == None:
+                    try:
+                        pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
+                    except Exception as e:
+                        return [
+                            False,
+                            f"{pathname}{search}",
+                            str(e), 
+                            ]
+                    #delete the row
+                    db.db_session.query(table).\
+                    filter(table.staff_name == staff_name, table.created_time == pre).\
+                    delete()
+                elif pre == None:
+                    try:
+                        cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
+                    except Exception as e:
+                        return [
+                            False,
+                            f"{pathname}{search}",
+                            str(e), 
+                            ]
+                    # insert a row
+                    db.db_session.add(table(staff_name=staff_name, created_time=cur))
+                else:
+                    try:
+                        pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
+                        cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
+                        print(pre, cur)
+                    except Exception as e:
+                        return [
+                            False,
+                            f"{pathname}{search}",
+                            str(e), 
+                            ]
+                    # update the row
+                    db.db_session.query(table).\
+                    filter(table.staff_name == staff_name, table.created_time == pre).\
+                    update({"created_time": cur})
+        db.db_session.commit()
         return [
-            data,
-            json.dumps(changes),
-            json.dumps(changes),
+            True,
+            f"{pathname}{search}", #refresh the page
+            'Succeed',
             ]
 
 
