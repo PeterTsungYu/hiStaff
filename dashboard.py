@@ -49,7 +49,7 @@ def init_callbacks():
     check_datepicker = dcc.DatePickerRange(
                         id='check_datepicker',
                         min_date_allowed=date(1992, 1, 25),
-                        max_date_allowed=date(2092, 1, 25),
+                        max_date_allowed=now_date,
                         initial_visible_month=now_date,
                         start_date=(now_date  - pd.offsets.MonthBegin(1)).date(),
                         end_date=now_date
@@ -169,7 +169,7 @@ def init_callbacks():
         check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
         agg_check = check_df['aggregation[hr]'].iloc[0]
 
-        #check_df = db.all_table_generator(start_date, end_date).check_dataframe()
+        print(db.all_table_generator(year= now_date.year, month=now_date.month).check_dataframe())
 
         return [
             check_table(check_df), 

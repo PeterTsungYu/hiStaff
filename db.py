@@ -116,8 +116,8 @@ staff_lst = [
 
 
 class all_table_generator:
-    def __init__(self, start, end):
-        self.calendar=hiCalendar(start, end)
+    def __init__(self, year, month):
+        self.calendar=hiCalendar(start = datetime(2022, 3, 1).date(), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
     def check_dataframe(self):
         check_lst = []
