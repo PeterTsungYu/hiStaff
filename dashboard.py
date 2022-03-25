@@ -168,6 +168,9 @@ def init_callbacks():
         print(end_date)
         check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
         agg_check = check_df['aggregation[hr]'].iloc[0]
+
+        #check_df = db.all_table_generator(start_date, end_date).check_dataframe()
+
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),

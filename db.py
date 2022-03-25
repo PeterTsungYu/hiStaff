@@ -114,6 +114,39 @@ staff_lst = [
     #Staffs(staff_name='Jessie'),
     ]
 
+
+class all_table_generator:
+    def __init__(self, start, end):
+        self.calendar=hiCalendar(start, end)
+        self.staff_lst = db_session.query(Staffs)
+    def check_dataframe(self):
+        check_lst = []
+        date_index = self.calendar.date_index.date
+        for staff in self.staff_lst:
+            out_dict = {}
+            for i in staff.checkout_time:
+                out_dict[i.created_time.date()]=i.created_time
+            out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in date_index]
+
+            in_dict = {}
+            for i in staff.checkin_time:
+                in_dict[i.created_time.date()]=i.created_time
+            in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in date_index]
+            
+            worktime_dict = {}
+            for i in date_index:
+                if (in_dict.get(i) != None) and (out_dict.get(i) != None):
+                    worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
+            worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
+            agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
+
+            in_out_lst = [f'{in_lst[i]} {out_lst[i]}'  for i in range(len(date_index))]
+            df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
+            df = pd.concat([pd.DataFrame([agg_lst[-1]], columns=df.columns), df], ignore_index=True)
+            check_lst.append(df)
+        date_index = ['aggregation[hr]'] + [str(i) for i in date_index]
+        df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + check_lst, axis=1)
+        return df_all
 class table_generator:
     def __init__(self, start, end, staff_name):
         self.calendar=hiCalendar(start, end)
@@ -128,21 +161,22 @@ class table_generator:
         return df
 
     def check_dataframe(self):
+        date_index = self.calendar.date_index.date
         out_dict = {}
         for i in self.staff.checkout_time:
             out_dict[i.created_time.date()]=i.created_time
-        out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in self.calendar.date_index.date]
+        out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in date_index]
 
         in_dict = {}
         for i in self.staff.checkin_time:
             in_dict[i.created_time.date()]=i.created_time
-        in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in self.calendar.date_index.date]
+        in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in date_index]
         
         worktime_dict = {}
-        for i in self.calendar.date_index.date:
+        for i in date_index:
             if (in_dict.get(i) != None) and (out_dict.get(i) != None):
                 worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
-        worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in self.calendar.date_index.date]
+        worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
         agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
 
         df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
