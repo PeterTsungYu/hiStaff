@@ -8,6 +8,7 @@ from datetime import datetime, date
 import pandas as pd
 import json
 import numpy as np
+import re
 
 # custom
 import db
@@ -166,7 +167,7 @@ def init_callbacks():
         print(start_date)
         print(end_date)
         check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
-        agg_check = check_df['aggregation[hr]'].iloc[-1]
+        agg_check = check_df['aggregation[hr]'].iloc[0]
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
@@ -175,6 +176,32 @@ def init_callbacks():
         ]
 
 
+    # only the last three row could be editable
+    # match certin string format
+    r = re.compile('\d{2}:\d{2}:\d{2}')
+    @callback(
+        Output('check_datatable', 'data'),
+        Input('check_datatable', 'data_timestamp'),
+        [State('check_datatable', 'data'),
+        State('previous_check_store', 'data'),]
+        )
+    def update_lastcells(timestamp, data, data_previous):
+        data_previous = pd.read_json(data_previous, orient='split').to_dict(orient='records')
+        if (data != None) and (data_previous) != None:
+            for i in range(len(data)):
+                for col in ['checkin', 'checkout']:
+                    if data[i][col] is not None:
+                        if (r.match(data[i][col]) is None):
+                            data[i][col] = 'HH:MM:SS'
+                    if i >= 3:
+                        #print(i, data[i][col], data_previous[i][col])
+                        data[i][col] = data_previous[i][col]
+                    else:
+                        pass
+            return data
+
+
+    # only the last three row could be editable
     # update the table         
     @callback(
     [

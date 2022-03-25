@@ -147,6 +147,7 @@ class table_generator:
 
         df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
+        df.iloc[:] = df.iloc[::-1].values
         return df
 
 ##======================line_msg==================================
