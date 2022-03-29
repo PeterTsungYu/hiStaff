@@ -117,7 +117,7 @@ staff_lst = [
 
 class all_table_generator:
     def __init__(self, year, month):
-        self.calendar=hiCalendar(start = datetime(2022, 3, 1).date(), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
+        self.calendar=hiCalendar(start = datetime(year, month, 1), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
     def check_dataframe(self):
         check_lst = []
@@ -139,10 +139,16 @@ class all_table_generator:
                     worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
             worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
             agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
+            #print(agg_lst)
 
             in_out_lst = [f'{in_lst[i]} {out_lst[i]}'  for i in range(len(date_index))]
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
-            df = pd.concat([pd.DataFrame([agg_lst[-1]], columns=df.columns), df], ignore_index=True)
+            #print(df)
+
+            if agg_lst != []:
+                df = pd.concat([pd.DataFrame([agg_lst[-1]], columns=df.columns), df], ignore_index=True)
+            else:
+                df = pd.concat([pd.DataFrame([0], columns=df.columns), df], ignore_index=True)
             check_lst.append(df)
         date_index = ['aggregation[hr]'] + [str(i) for i in date_index]
         df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + check_lst, axis=1)

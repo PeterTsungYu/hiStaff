@@ -58,10 +58,10 @@ def home():
 @app.route('/staff')
 def staff():
     d = dict(parse_qsl(request.args.get('liff.state')))
-    if d.get('/checkin/name') != None:
-        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkin?staff={d.get("/checkin/name")}' #http://localhost:5003/hiStaff_dashapp/...
-    elif d.get('/checkout/name') != None:
-        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}checkout?staff={d.get("/checkout/name")}' #http://localhost:5003/hiStaff_dashapp/...
+    if d.get('/date_check/name') != None:
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}date_check?staff={d.get("/date_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
+    elif d.get('/season_check/name') != None:
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}season_check?staff={d.get("/season_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
     return redirect(redirect_url)
 
 
@@ -117,14 +117,15 @@ def handle_message(event):
         elif msg_text in ['personal dashboard']:
             msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
                                             template=ButtonsTemplate(text='Peek ur dashboard',
-                                                                    actions=[URIAction(label=f"{staff_integrity.staff_name}'s CheckIn Dash", 
-                                                                                    uri=f'{config.dash_liff}/checkin/name={staff_integrity.staff_name}'),
-                                                                            URIAction(label=f"{staff_integrity.staff_name}'s CheckOut Dash", 
-                                                                                    uri=f'{config.dash_liff}/checkout/name={staff_integrity.staff_name}')
+                                                                    actions=[URIAction(label=f"Check Table", 
+                                                                                    uri=f'{config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
+                                                                            URIAction(label=f"Season Table", 
+                                                                                    uri=f'{config.dash_liff}/season_check/name={staff_integrity.staff_name}')
                                                                                     ]
                                                                 )
                                                                 ),
-                        TextSendMessage(text=f'{config.dash_liff}/checkin/name={staff_integrity.staff_name}')
+                        TextSendMessage(text=f'Your personal check table: {config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
+                        TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
                         ]
 
 
