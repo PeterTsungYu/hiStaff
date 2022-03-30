@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint, select
 from datetime import datetime, date
+import numpy as np
 import pandas as pd
 def strptime(time):
     if 't' in time:
@@ -114,6 +115,54 @@ staff_lst = [
     #Staffs(staff_name='Jessie'),
     ]
 
+class season_table_generator:
+    def __init__(self, year, season):
+        season_dict = {'Q1':[1,2,3], 'Q2':[4,5,6], 'Q3':[7,8,9], 'Q4':[10,11,12]}
+        self.season = season_dict[season]
+        self.calendar_lst=[
+            hiCalendar(start = datetime(year, season_dict[season][0], 1), end = (datetime(year, season_dict[season][0], 1) + pd.offsets.MonthEnd(1)).date()),
+            hiCalendar(start = datetime(year, season_dict[season][1], 1), end = (datetime(year, season_dict[season][1], 1) + pd.offsets.MonthEnd(1)).date()),
+            hiCalendar(start = datetime(year, season_dict[season][2], 1), end = (datetime(year, season_dict[season][2], 1) + pd.offsets.MonthEnd(1)).date()),
+        ]
+        self.staff_lst = db_session.query(Staffs)
+        self.staff_name_lst = [staff.staff_name for staff in self.staff_lst]
+    def check_dataframe(self):
+        seasonal_required_hours = 0
+        check_lst_2d = []
+        for calendar in self.calendar_lst:
+            date_index = calendar.date_index.date
+            check_lst_1d = []
+            for staff in self.staff_lst:
+                out_dict = {}
+                for i in staff.checkout_time:
+                    out_dict[i.created_time.date()]=i.created_time
+
+                in_dict = {}
+                for i in staff.checkin_time:
+                    in_dict[i.created_time.date()]=i.created_time
+                
+                worktime_dict = {}
+                for i in date_index:
+                    if (in_dict.get(i) != None) and (out_dict.get(i) != None):
+                        worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
+                worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
+                agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
+                check_lst_1d.append(agg_lst[-1])
+            check_lst_2d.append(check_lst_1d)
+            seasonal_required_hours += ((calendar.bdays_bool_df() * 9).sum()[0])
+        #print(np.array(check_lst_2d).sum(axis=0))
+        monthly_df = pd.DataFrame(np.array(check_lst_2d), columns=self.staff_name_lst)
+        total_df = pd.DataFrame([np.array(check_lst_2d).sum(axis=0)], columns=self.staff_name_lst)
+        diff_df = pd.DataFrame([np.array(check_lst_2d).sum(axis=0) - seasonal_required_hours], columns=self.staff_name_lst)
+        df = pd.concat([monthly_df, total_df, diff_df], axis=0, ignore_index=True)
+        #print(total_df)
+        #print(diff_df)
+        #print(df)
+        date_index = self.season + ['agg [hr', 'diff [hr]']
+        df = pd.concat([pd.DataFrame(data={'index':date_index}), df], axis=1)
+
+        return df
+
 
 class all_table_generator:
     def __init__(self, year, month):
@@ -144,15 +193,19 @@ class all_table_generator:
             in_out_lst = [f'{in_lst[i]} {out_lst[i]}'  for i in range(len(date_index))]
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
             #print(df)
+            
+            required_hours = (self.calendar.bdays_bool_df() * 9).sum()[0]
 
             if agg_lst != []:
-                df = pd.concat([pd.DataFrame([agg_lst[-1]], columns=df.columns), df], ignore_index=True)
+                df = pd.concat([pd.DataFrame([agg_lst[-1], (agg_lst[-1]-required_hours)], columns=df.columns), df], ignore_index=True)
             else:
-                df = pd.concat([pd.DataFrame([0], columns=df.columns), df], ignore_index=True)
+                df = pd.concat([pd.DataFrame([0, 0], columns=df.columns), df], ignore_index=True)
             check_lst.append(df)
-        date_index = ['aggregation[hr]'] + [str(i) for i in date_index]
+        date_index = ['aggregation[hr]', 'diff[hr]'] + [str(i) for i in date_index]
         df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + check_lst, axis=1)
+        
         return df_all
+
 class table_generator:
     def __init__(self, start, end, staff_name):
         self.calendar=hiCalendar(start, end)
@@ -188,7 +241,10 @@ class table_generator:
         df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
         df.iloc[:] = df.iloc[::-1].values
-        return df
+
+        required_hours = (self.calendar.bdays_bool_df() * 9).sum()[0]
+        
+        return df, required_hours
 
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
@@ -295,4 +351,4 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    pass
+    season_table_generator(year=2022, season='Q1').check_dataframe()

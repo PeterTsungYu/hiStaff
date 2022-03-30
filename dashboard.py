@@ -56,20 +56,23 @@ def init_callbacks():
         )
     check_datatable_div = html.Div(id='check_datatable_div')
     mycheck_datatable_div = html.Div(id='mycheck_datatable_div')
+    season_check_datatable_div = html.Div(id='season_check_datatable_div')
     sum_string = html.Div(id='sum_string')
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
-        children=html.Button('Edit',),
+        children=html.Button('Click to edit the table entry',),
         id='check_button',
         message='Ready to submit your change to your working time data. Pls double make sure it.'
         )
     check_link = dcc.Link(id='check_link', href=f'{url_prefix}/')
     home_link = dcc.Link(id='home_link', href=f'{url_prefix}/')
     index_dropdown = dcc.Dropdown(['check', 'Season'], 'check', id='index_dropdown')
-    month_dropdown = dcc.Dropdown(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], datetime.now().strftime("%b"), id='month_dropdown')
-    year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown')
+    month_dropdown = dcc.Dropdown(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], datetime.now().strftime("%b"), id='month_dropdown', placeholder="Select A Month",)
+    year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown', placeholder="Select A Year",)
+    season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
     index_link = dcc.Link(id='index_link', href='')
     def check_table(check_df):
+        print(check_df.columns)
         datatable = DataTable(
                             id='check_datatable',
                             columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
@@ -113,7 +116,9 @@ def init_callbacks():
                                 for row in check_df.to_dict('records')
                             ],
                             tooltip_delay=0,
-                            tooltip_duration=None
+                            tooltip_duration=None,
+                            export_format='xlsx',
+                            export_headers='display',
                         )
         return datatable
     
@@ -151,11 +156,46 @@ def init_callbacks():
 
     my_check_layout= [html.Div([
         check_h1,
-        year_dropdown,
-        month_dropdown,
+        html.Div([year_dropdown, month_dropdown], style={"width": "25%"}),
         mycheck_datatable_div,
     ])]
 
+    season_check_layout= [html.Div([
+        check_h1,
+        html.Div([year_dropdown, season_dropdown], style={"width": "25%"}),
+        season_check_datatable_div,
+    ])]
+
+    # year and quarter picker for check_table
+    @callback(
+        [
+            Output('season_check_datatable_div', 'children'),
+            ],
+        [
+            Input('year_dropdown', 'value'),
+            Input('season_dropdown', 'value'),
+            ],
+        [
+            State('url', 'search'),
+            State('url', 'pathname'),
+            ]
+        )
+    def season_picker_check_table(year, season, search, pathname):
+        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        print(staff)
+        print(pathname)
+        #print(int(datetime.strptime(month, "%b").month))
+
+        if 'season_check_all' in pathname:
+        #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
+            check_df = db.season_table_generator(year=int(year), season=season).check_dataframe()
+            print(check_df)
+        else:
+            pass
+
+        return [
+            check_table(check_df), 
+        ]
 
     # month and year picker for check_table
     @callback(
@@ -165,18 +205,22 @@ def init_callbacks():
         [
             Input('year_dropdown', 'value'),
             Input('month_dropdown', 'value'),
-            Input('url', 'search'),
             ],
+        [
+            State('url', 'search'),
+            State('url', 'pathname'),
+            ]
         )
-    def mypicker_check_table(year, month, search):
+    def mypicker_check_table(year, month, search, pathname):
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         #print(int(datetime.strptime(month, "%b").month))
 
-        if staff == 'all':
+        if 'date_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
             check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
         else:
             pass
+
         return [
             check_table(check_df), 
         ]
@@ -201,16 +245,16 @@ def init_callbacks():
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         print(start_date)
         print(end_date)
-        check_df = db.table_generator(start_date, end_date, staff).check_dataframe()
+        check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
         agg_check = check_df['aggregation[hr]'].iloc[0]
-
-        print(db.all_table_generator(year= now_date.year, month=now_date.month).check_dataframe())
 
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
             agg_check,
-            f"This month till now, u've worked for {agg_check} [hr].",
+            [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
+            html.Div(f"Required hours: {required_hours} [hr]."), 
+            html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),]
         ]
 
 
@@ -388,7 +432,6 @@ def init_callbacks():
             ]
         )
     def display_page(pathname, search):
-        print(f'{search} from display_page')
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
         if 'date_check' in check_type:
@@ -406,12 +449,14 @@ def init_callbacks():
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
 
-        if 'date_check' in pathname:
+        if check_type == '/date_check':
             return check_layout
-        elif '/season_check' in pathname:
+        elif check_type == '/season_check':
+            return season_check_layout
+        elif check_type == '/date_check_all':
             return my_check_layout
-        elif 'date_check_all' in pathname:
-            return my_check_layout
+        elif check_type == '/season_check_all':
+            return season_check_layout
         else:
             return index_page
         # You could also return a 404 "URL not found" page here
