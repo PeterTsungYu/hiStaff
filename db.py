@@ -116,7 +116,13 @@ staff_lst = [
     ]
 
 class season_table_generator:
-    def __init__(self, year, season):
+    def __init__(self, staff_name, year, season):
+        self.staff_name=staff_name
+        if staff_name == 'all':
+            self.staff_lst = db_session.query(Staffs)
+        else:
+            self.staff_lst = [db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()]
+        self.staff_name_lst = [staff.staff_name for staff in self.staff_lst]
         season_dict = {'Q1':[1,2,3], 'Q2':[4,5,6], 'Q3':[7,8,9], 'Q4':[10,11,12]}
         self.season = season_dict[season]
         self.calendar_lst=[
@@ -124,8 +130,6 @@ class season_table_generator:
             hiCalendar(start = datetime(year, season_dict[season][1], 1), end = (datetime(year, season_dict[season][1], 1) + pd.offsets.MonthEnd(1)).date()),
             hiCalendar(start = datetime(year, season_dict[season][2], 1), end = (datetime(year, season_dict[season][2], 1) + pd.offsets.MonthEnd(1)).date()),
         ]
-        self.staff_lst = db_session.query(Staffs)
-        self.staff_name_lst = [staff.staff_name for staff in self.staff_lst]
     def check_dataframe(self):
         seasonal_required_hours = 0
         check_lst_2d = []
@@ -158,7 +162,7 @@ class season_table_generator:
         #print(total_df)
         #print(diff_df)
         #print(df)
-        date_index = self.season + ['agg [hr', 'diff [hr]']
+        date_index = self.season + ['agg [hr]', 'diff [hr]']
         df = pd.concat([pd.DataFrame(data={'index':date_index}), df], axis=1)
 
         return df

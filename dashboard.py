@@ -54,9 +54,13 @@ def init_callbacks():
                         start_date=(now_date  - pd.offsets.MonthBegin(1)).date(),
                         end_date=now_date
         )
-    check_datatable_div = html.Div(id='check_datatable_div')
-    mycheck_datatable_div = html.Div(id='mycheck_datatable_div')
-    season_check_datatable_div = html.Div(id='season_check_datatable_div')
+    table_style = {
+        'width':'95%', 
+        #'background-color': '#0074D9'
+        }
+    check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
+    mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
+    season_check_datatable_div = html.Div(id='season_check_datatable_div', style=table_style)
     sum_string = html.Div(id='sum_string')
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
@@ -89,7 +93,8 @@ def init_callbacks():
                             page_action="native",
                             page_current= 0,
                             page_size= 10,
-                            style_cell={                # ensure adequate header width when text is shorter than cell's text
+                            style_cell={ 
+                                'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                                 'minWidth': 65, 'maxWidth': 95, 'width': 95,
                                 'overflow': 'hidden',
                                 'textOverflow': 'ellipsis',
@@ -99,12 +104,34 @@ def init_callbacks():
                                 {
                                     'if': {'column_id': c},
                                     'textAlign': 'left'
-                                } for c in ['date', 'checkin', 'checkout']
+                                } for c in ['date']
                             ],
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
                                 'height': 30
                             },
+                            style_data_conditional=[
+                                {
+                                    'if': {
+                                        'state': 'active'  # 'active' | 'selected'
+                                        },
+                                    'backgroundColor': 'rgba(0, 116, 217, 0.3)',
+                                    'border': '1px solid rgb(0, 116, 217)'
+                                    },
+                                {
+                                    'if': {
+                                        'filter_query': '{date} > ' + f'{(now_date-pd.offsets.DateOffset(days=2)).date().strftime("%m/%d/%Y")}',
+                                        'column_id': ['checkin', 'checkout']
+                                        },
+                                    'backgroundColor': '#7FDBFF',
+                                    'color': 'white',
+                                    'border': '1px solid rgb(0, 116, 217)'
+                                    },
+                            ],
+                            style_header={
+                                'backgroundColor': '#0074D9',
+                                'color': 'white'
+                                },
                             tooltip_data=[
                                 {
                                     column: {'value': f'Edit with following format: "HH:MM:SS"', 'type': 'markdown'}
@@ -113,7 +140,7 @@ def init_callbacks():
                                     for column, value in row.items()
                                     
                                 } 
-                                for row in check_df.to_dict('records')
+                                for row in check_df.to_dict('records')[:3]
                             ],
                             tooltip_delay=0,
                             tooltip_duration=None,
@@ -185,13 +212,9 @@ def init_callbacks():
         print(staff)
         print(pathname)
         #print(int(datetime.strptime(month, "%b").month))
-
-        if 'season_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
-            check_df = db.season_table_generator(year=int(year), season=season).check_dataframe()
-            print(check_df)
-        else:
-            pass
+        check_df = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
+        print(check_df)
 
         return [
             check_table(check_df), 
