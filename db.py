@@ -100,17 +100,104 @@ class CheckOut(Base):
     def __repr__(self):
         return f'<CheckOut {self.id!r}>'
 
+
+class Personal_Leave(Base):
+    __tablename__ = 'Personal_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Personal_Leave {self.id!r}>'
+
+
+class Sick_Leave(Base):
+    __tablename__ = 'Sick_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Sick_Leave {self.id!r}>'
+
+class Business_Leave(Base):
+    __tablename__ = 'Business_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Business_Leave {self.id!r}>'
+
+class Deferred_Leave(Base):
+    __tablename__ = 'Deferred_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Deferred_Leave {self.id!r}>'
+
+class Annual_Leave(Base):
+    __tablename__ = 'Annual_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Annual_Leave {self.id!r}>'
+
+class Marital_Leave(Base):
+    __tablename__ = 'Marital_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Marital_Leave {self.id!r}>'
+
+class Maternity_Leave(Base):
+    __tablename__ = 'Maternity_Leave_table'
+    now = datetime.now()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    start = Column(DateTime, default=now)
+    end = Column(DateTime, default=now)
+    def __repr__(self):
+        return f'<Maternity_Leave {self.id!r}>'
+
 class Staffs(Base):
     __tablename__ = 'staffs_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String)
+    Personal_Leave = Column(Float, default=0)
+    Sick_Leave = Column(Float, default=0)
+    Business_Leave = Column(Float, default=0)
+    Deffered_Leave = Column(Float, default=0)
+    Annual_Leave = Column(Float, default=10.0)
+    Marital_Leave = Column(Float, default=7.0)
+    Maternity_Leave = Column(Float, default=7.0)
     def __repr__(self):
         return f'<Staff {self.staff_name!r}>'
 
 Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
+Staffs.Personal_Leave_time = relationship("Personal_Leave", backref="many_staff")
+Staffs.Sick_Leave_time = relationship("Sick_Leave", backref="many_staff")
+Staffs.Business_Leave_time = relationship("Business_Leave", backref="many_staff")
+Staffs.Deferred_Leave_time = relationship("Deferred_Leave", backref="many_staff")
+Staffs.Annual_Leave_time = relationship("Annual_Leave", backref="many_staff")
+Staffs.Marital_Leave_time = relationship("Marital_Leave", backref="many_staff")
+Staffs.Maternity_Leave_time = relationship("Maternity_Leave", backref="many_staff")
+
 staff_lst = [
-    Staffs(staff_name='謝宗佑'),
+    Staffs(staff_name='謝宗佑', Annual_Leave=10),
     Staffs(staff_name='佳嶸'),
     #Staffs(staff_name='Jessie'),
     ]
@@ -251,16 +338,39 @@ class table_generator:
         return df, required_hours
 
 ##======================line_msg==================================
-def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select Date/Time'):
+def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='Pls Select Date/Time'):
     '''
-    check: 'checkin' or 'checkout'
+    check: 'checkin' or 'checkout' or 'take a leave'
     '''
-    datetimepicker = DatetimePickerAction(
+    if check == 'checkin':
+        datetimepicker = DatetimePickerAction(
                             label="moment",
                             data=f'id=0&staff_name={staff_name}&check={check}',
                             mode='datetime',
-                            #initial, max, min
+                            initial=now.strftime("%Y-%m-%dT%H:%M"),
+                            max = now.strftime("%Y-%m-%dT")+'23:59',
+                            min = now.strftime("%Y-%m-%dT%H:%M")
                             )
+    elif check == 'checkout':
+        datetimepicker = DatetimePickerAction(
+                            label="moment",
+                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            mode='datetime',
+                            initial=now.strftime("%Y-%m-%dT%H:%M"),
+                            min = now.strftime("%Y-%m-%dT")+'00:00',
+                            max = now.strftime("%Y-%m-%dT%H:%M")
+                            )
+    elif '_Leave' in check :
+        datetimepicker = DatetimePickerAction(
+                            label="moment",
+                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            mode='datetime',
+                            initial=now.strftime("%Y-%m-%dT%H:%M"),
+                            min = now.strftime("%Y-%m-%dT%H:%M")
+                            )
+    else:
+        pass
+
     bubble = BubbleContainer(
                 hero=ImageComponent(
                 size="full",
@@ -281,7 +391,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, moment='Pls Select 
                             layout="baseline",
                             contents=[
                                 TextComponent(
-                                    text='check in',
+                                    text=f'{check}',
                                     wrap=True,
                                     weight='bold',
                                     size= "xl",

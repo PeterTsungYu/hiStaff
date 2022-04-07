@@ -30,6 +30,7 @@ import db
 
 checkin_img_url = "https://img.onl/f41SeX"
 checkout_img_url = "https://img.onl/BMdSLf"
+
 ##======================routes==================================
 @app.before_request
 def init_tables():
@@ -103,6 +104,8 @@ def callback():
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
 
+    now_datetime = datetime.now()
+
     user_id = event.source.user_id
     user = db.get_or_create_user(user_id=user_id)
     msg_text = str(event.message.text).lower()
@@ -111,9 +114,9 @@ def handle_message(event):
     staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
     if staff_integrity != None:
         if msg_text in ['check in']:
-            msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name)
+            msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
         elif msg_text in ['check out']:
-            msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name)
+            msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
         elif msg_text in ['personal dashboard']:
             msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
                                             template=ButtonsTemplate(text='Peek ur dashboard',
@@ -127,7 +130,19 @@ def handle_message(event):
                         TextSendMessage(text=f'Your personal check table: {config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
                         TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
                         ]
-
+        elif msg_text in ['take a leave_start']:
+            msg_reply = TextSendMessage(text="Scroll Right to select your type of leave",
+                                        quick_reply=QuickReply(items=[
+                                                                QuickReplyButton(action=PostbackAction(label="Personal_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Personal_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Sick_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Sick_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Business_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Business_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Deffered_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Deffered_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Annual_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Annual_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Marital_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Marital_Leave_start&moment={now_datetime}')),
+                                                                QuickReplyButton(action=PostbackAction(label="Maternity_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Maternity_Leave_start&moment={now_datetime}')),
+                                                                ]
+                                                                )
+                                )
 
     if (msg_reply is None): 
         msg_reply = [
@@ -141,13 +156,16 @@ def handle_message(event):
 
 @config.handler.add(PostbackEvent)
 def handle_postback(event):
+
+    now_datetime = datetime.now()
+
     data = event.postback.data
     back_dict = dict(parse_qsl(data))
     params = event.postback.params
     config.logger.debug(back_dict)
 
     # check in or out moment handler
-    if any([s in data for s in ('checkin', 'checkout')]):
+    if any([s in data for s in ('checkin', 'checkout')]) or ('_Leave' in data):
         id = back_dict.get('id')
         staff_name = back_dict.get('staff_name')
         check = back_dict.get('check')
@@ -161,9 +179,11 @@ def handle_postback(event):
             elif id == '1': # id=1 action=postback
                 if check == 'checkin':
                     img_url = checkin_img_url
-                else:
+                elif check == 'checkout':
                     img_url = checkout_img_url
-                msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name)
+                elif '_Leave' in check:
+                    img_url = checkin_img_url
+                msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name, now=now_datetime)
             elif id == '2': # id=2 action=postback
                 moment = strptime(moment)
                 # check in and check out table should be compared
@@ -197,7 +217,7 @@ def handle_postback(event):
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Close...but you are still late!')]
                             else:
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')]  
-                else: # elif check == 'checkout': 
+                elif check == 'checkout': 
                     for i in [0,1,2]:
                         if i == 0 and last_checkout != None:
                             last_checkout_moment = last_checkout.created_time
@@ -233,6 +253,16 @@ def handle_postback(event):
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Efficiency is your motto!')]
                             else:
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
+                elif '_Leave_start' in check :
+                    msg_reply = db.moment_bubble(check=check.strip('start')+'end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime)
+                    # write to db
+                    pass
+
+                elif '_Leave_end' in check:
+                    msg_reply = TextSendMessage(text=f'Succeed to take {check.strip("end").strip("_")}')
+                    # write to db
+                    pass
+                    
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
 
         except AttributeError as e:
