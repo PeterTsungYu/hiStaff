@@ -254,15 +254,38 @@ def handle_postback(event):
                             else:
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
                 elif '_Leave_start' in check :
-                    msg_reply = db.moment_bubble(check=check.strip('start')+'end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime)
-                    # write to db
-                    pass
+                    try:
+                        check=check.strip('_start')
+                        _Leave_start = db.__dict__.get(check)(staff_name=staff_name, start=moment)
+                        db.db_session.add(_Leave_start)
+                        db.db_session.commit()
+                        msg_reply = [
+                            TextSendMessage(text=f'Succeed to take {check}'),
+                            db.moment_bubble(check=check.strip('start')+'_end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime),
+                        ]
+                    except:
+                        msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
 
                 elif '_Leave_end' in check:
-                    msg_reply = TextSendMessage(text=f'Succeed to take {check.strip("end").strip("_")}')
-                    # write to db
-                    pass
-                    
+                    try:
+                        check = check.strip("end").strip("_")
+                        _table = db.__dict__.get(check)
+                        _entry = db.db_session.query(_table).filter(_table.staff_name==staff_name).order_by(_table.id.desc()).first()
+                        if moment >= _entry.start:
+                            db.db_session.query(_table).\
+                            filter(_table.staff_name==staff_name, _table.id==_entry.id).\
+                            update({"end": moment})
+                            db.db_session.commit()
+                            msg_reply = TextSendMessage(text=f'Succeed to take {check}')
+                            config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'(Testing msg) {staff_name} takes {check} from {_entry.start} to {moment}'))
+                        else:
+                            msg_reply = [
+                                TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
+                                db.moment_bubble(check=check+'_end', img_url=checkout_img_url, staff_name=staff_name, now=now_datetime),
+                            ]
+                    except:
+                        msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
+
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
 
         except AttributeError as e:

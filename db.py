@@ -106,8 +106,8 @@ class Personal_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Personal_Leave {self.id!r}>'
 
@@ -117,8 +117,8 @@ class Sick_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Sick_Leave {self.id!r}>'
 
@@ -127,8 +127,8 @@ class Business_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Business_Leave {self.id!r}>'
 
@@ -137,8 +137,8 @@ class Deferred_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Deferred_Leave {self.id!r}>'
 
@@ -147,8 +147,8 @@ class Annual_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Annual_Leave {self.id!r}>'
 
@@ -157,8 +157,8 @@ class Marital_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Marital_Leave {self.id!r}>'
 
@@ -167,8 +167,8 @@ class Maternity_Leave(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime, default=now)
-    end = Column(DateTime, default=now)
+    start = Column(DateTime)
+    end = Column(DateTime)
     def __repr__(self):
         return f'<Maternity_Leave {self.id!r}>'
 
