@@ -339,6 +339,7 @@ class table_generator:
 
 ##======================line_msg==================================
 def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='Pls Select Date/Time'):
+    print((now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M"))
     '''
     check: 'checkin' or 'checkout' or 'take a leave'
     '''
@@ -349,7 +350,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             max = now.strftime("%Y-%m-%dT")+'23:59',
-                            min = now.strftime("%Y-%m-%dT%H:%M")
+                            min = (now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M")
                             )
     elif check == 'checkout':
         datetimepicker = DatetimePickerAction(
@@ -358,7 +359,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             min = now.strftime("%Y-%m-%dT")+'00:00',
-                            max = now.strftime("%Y-%m-%dT%H:%M")
+                            max = (now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M")
                             )
     elif '_Leave' in check :
         datetimepicker = DatetimePickerAction(
@@ -366,7 +367,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             data=f'id=0&staff_name={staff_name}&check={check}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
-                            min = now.strftime("%Y-%m-%dT%H:%M")
+                            min = (now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M")
                             )
     else:
         pass
