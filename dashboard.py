@@ -61,6 +61,7 @@ def init_callbacks():
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
     mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
     season_check_datatable_div = html.Div(id='season_check_datatable_div', style=table_style)
+    leave_datatable_div = html.Div(id='leave_datatable_div', style=table_style)
     sum_string = html.Div(id='sum_string')
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
@@ -172,6 +173,8 @@ def init_callbacks():
         change_string,
         check_button,
         html.Br(),
+        leave_datatable_div,
+        html.Br(),
         check_link,
         html.Br(),
         home_link,
@@ -256,6 +259,7 @@ def init_callbacks():
             Output('previous_check_store', 'data'),
             Output('agg_check_store', 'data'),
             Output('sum_string', 'children'),
+            Output('leave_datatable_div', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -271,13 +275,17 @@ def init_callbacks():
         check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
         agg_check = check_df['aggregation[hr]'].iloc[0]
 
+        # leave
+        leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
+
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
             agg_check,
             [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
             html.Div(f"Required hours: {required_hours} [hr]."), 
-            html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),]
+            html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),],
+            check_table(leave_df)
         ]
 
 

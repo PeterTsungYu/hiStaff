@@ -309,6 +309,28 @@ class table_generator:
             con = engine
         )
         return df
+    
+    def leave_dataframe(self):
+        leave_dict = {}
+        for i in [i for i in Staffs.__dict__.keys() if 'Leave_time' in i]:
+            result = getattr(self.staff, i)
+            if result != []:
+                leave_dict[i] = result
+        print(leave_dict)
+        
+        d = {}
+        _set = set()
+        for i in leave_dict.keys():
+            _obj_lst = leave_dict[i]
+            for u in range(len(_obj_lst)):
+                _obj = _obj_lst[u]
+                d[f'{i}_{u}'] = [_obj.start, _obj.end]
+                if _obj.start != None and _obj.end != None:
+                    for v in pd.date_range(start=_obj.start.date(), end=_obj.end.date()):
+                        _set.add(v)
+        leave_df = pd.DataFrame.from_dict(d, orient='index', columns=['start', 'end']).reset_index()
+        
+        return leave_df, d
 
     def check_dataframe(self):
         date_index = self.calendar.date_index.date
@@ -359,7 +381,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             min = now.strftime("%Y-%m-%dT")+'00:00',
-                            max = (now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M")
+                            max = now.strftime("%Y-%m-%dT%H:%M"),
                             )
     elif '_Leave' in check :
         datetimepicker = DatetimePickerAction(
@@ -466,4 +488,5 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    season_table_generator(year=2022, season='Q1').check_dataframe()
+    #season_table_generator(year=2022, season='Q1').check_dataframe()
+    table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').leave_dataframe()

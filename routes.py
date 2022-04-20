@@ -204,7 +204,7 @@ def handle_postback(event):
                             else:
                                 continue
                         # case: check prior
-                        if i == 1 and (now.timestamp() - moment.timestamp()) >= 120: 
+                        if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
                             msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
                         # case: check correctly
                         else: 
@@ -233,14 +233,14 @@ def handle_postback(event):
                             last_checkin_moment = last_checkin.created_time
                             if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
                                 msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
-                                break
+                                continue
                             elif moment.timestamp() < last_checkin_moment.timestamp():
                                 msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
                                 break
                             else:
                                 continue
                         # case: check belatedly
-                        if i == 2 and (moment.timestamp() - now.timestamp()) >= 120:
+                        if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
                             msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
                         # case: check correctly
                         else:
@@ -277,7 +277,7 @@ def handle_postback(event):
                             update({"end": moment})
                             db.db_session.commit()
                             msg_reply = TextSendMessage(text=f'Succeed to take {check}')
-                            config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'(Testing msg) {staff_name} takes {check} from {_entry.start} to {moment}'))
+                            config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'{staff_name} takes {check} from {_entry.start} to {moment}'))
                         else:
                             msg_reply = [
                                 TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
