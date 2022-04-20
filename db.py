@@ -101,81 +101,31 @@ class CheckOut(Base):
         return f'<CheckOut {self.id!r}>'
 
 
-class Personal_Leave(Base):
-    __tablename__ = 'Personal_Leave_table'
+class Leaves(Base):
+    __tablename__ = 'leaves_table'
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
+    staff_name = Column(String, ForeignKey('staffs_table.staff_name'), nullable=False)
     start = Column(DateTime)
     end = Column(DateTime)
+    type = Column(String, nullable=False)
     def __repr__(self):
-        return f'<Personal_Leave {self.id!r}>'
+        return f'<Leave {self.id!r}>'
 
-
-class Sick_Leave(Base):
-    __tablename__ = 'Sick_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Sick_Leave {self.id!r}>'
-
-class Business_Leave(Base):
-    __tablename__ = 'Business_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Business_Leave {self.id!r}>'
-
-class Deferred_Leave(Base):
-    __tablename__ = 'Deferred_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Deferred_Leave {self.id!r}>'
-
-class Annual_Leave(Base):
-    __tablename__ = 'Annual_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Annual_Leave {self.id!r}>'
-
-class Marital_Leave(Base):
-    __tablename__ = 'Marital_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Marital_Leave {self.id!r}>'
-
-class Maternity_Leave(Base):
-    __tablename__ = 'Maternity_Leave_table'
-    now = datetime.now()
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
-    start = Column(DateTime)
-    end = Column(DateTime)
-    def __repr__(self):
-        return f'<Maternity_Leave {self.id!r}>'
-
+leaves_type = {
+        'Personal_Leave':{'type':'PS', 'coeff':1},
+        'Sick_Leave':{'type':'SK', 'coeff':0.5},
+        'Business_Leave':{'type':'BN', 'coeff':1},
+        'Deferred_Leave':{'type':'DF', 'coeff':1},
+        'Annual_Leave':{'type':'AA', 'coeff':1},
+        'Marital_Leave':{'type':'MT', 'coeff':1},
+        'Maternity_Leave':{'type':'MN', 'coeff':1},
+    }
+    
 class Staffs(Base):
     __tablename__ = 'staffs_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    staff_name = Column(String)
+    staff_name = Column(String, nullable=False)
     Personal_Leave = Column(Float, default=0)
     Sick_Leave = Column(Float, default=0)
     Business_Leave = Column(Float, default=0)
@@ -188,13 +138,7 @@ class Staffs(Base):
 
 Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
-Staffs.Personal_Leave_time = relationship("Personal_Leave", backref="many_staff")
-Staffs.Sick_Leave_time = relationship("Sick_Leave", backref="many_staff")
-Staffs.Business_Leave_time = relationship("Business_Leave", backref="many_staff")
-Staffs.Deferred_Leave_time = relationship("Deferred_Leave", backref="many_staff")
-Staffs.Annual_Leave_time = relationship("Annual_Leave", backref="many_staff")
-Staffs.Marital_Leave_time = relationship("Marital_Leave", backref="many_staff")
-Staffs.Maternity_Leave_time = relationship("Maternity_Leave", backref="many_staff")
+Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 
 staff_lst = [
     Staffs(staff_name='謝宗佑', Annual_Leave=10),

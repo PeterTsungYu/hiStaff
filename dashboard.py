@@ -173,7 +173,7 @@ def init_callbacks():
         change_string,
         check_button,
         html.Br(),
-        leave_datatable_div,
+        #leave_datatable_div,
         html.Br(),
         check_link,
         html.Br(),
@@ -259,7 +259,7 @@ def init_callbacks():
             Output('previous_check_store', 'data'),
             Output('agg_check_store', 'data'),
             Output('sum_string', 'children'),
-            Output('leave_datatable_div', 'children'),
+            #Output('leave_datatable_div', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -276,7 +276,7 @@ def init_callbacks():
         agg_check = check_df['aggregation[hr]'].iloc[0]
 
         # leave
-        leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
+        #leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
 
         return [
             check_table(check_df), 
@@ -285,7 +285,7 @@ def init_callbacks():
             [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
             html.Div(f"Required hours: {required_hours} [hr]."), 
             html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),],
-            check_table(leave_df)
+            #check_table(leave_df)
         ]
 
 

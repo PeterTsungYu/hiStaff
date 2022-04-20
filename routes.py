@@ -2,6 +2,7 @@ from cgi import test
 from flask import current_app as app
 from flask import render_template, request, abort, redirect, url_for
 import requests 
+import json
 from linebot.exceptions import (
     InvalidSignatureError
 )
@@ -255,13 +256,11 @@ def handle_postback(event):
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
                 elif '_Leave_start' in check :
                     try:
-                        check=check.strip('_start')
-                        _Leave_start = db.__dict__.get(check)(staff_name=staff_name, start=moment)
-                        db.db_session.add(_Leave_start)
+                        db.db_session.add(db.Leaves(staff_name=staff_name, start=moment, type=db.leaves_type[check.strip('_start')]['type']))
                         db.db_session.commit()
                         msg_reply = [
                             TextSendMessage(text=f'Succeed to take {check}'),
-                            db.moment_bubble(check=check.strip('start')+'_end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime),
+                            db.moment_bubble(check=check.strip('_start')+'_end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime),
                         ]
                     except:
                         msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
@@ -269,11 +268,10 @@ def handle_postback(event):
                 elif '_Leave_end' in check:
                     try:
                         check = check.strip("end").strip("_")
-                        _table = db.__dict__.get(check)
-                        _entry = db.db_session.query(_table).filter(_table.staff_name==staff_name).order_by(_table.id.desc()).first()
+                        _entry = db.db_session.query(db.Leaves).filter(db.Leaves.staff_name==staff_name, db.Leaves.type==db.leaves_type[check.strip('_start')]['type']).order_by(db.Leaves.id.desc()).first()
                         if moment >= _entry.start:
-                            db.db_session.query(_table).\
-                            filter(_table.staff_name==staff_name, _table.id==_entry.id).\
+                            db.db_session.query(db.Leaves).\
+                            filter(db.Leaves.staff_name==staff_name, db.Leaves.id==_entry.id).\
                             update({"end": moment})
                             db.db_session.commit()
                             msg_reply = TextSendMessage(text=f'Succeed to take {check}')
@@ -290,7 +288,6 @@ def handle_postback(event):
 
         except AttributeError as e:
             print(e)
-
 
 if __name__ == "__main__":
     pass
