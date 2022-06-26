@@ -106,20 +106,20 @@ class Leaves(Base):
     now = datetime.now()
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'), nullable=False)
-    start = Column(DateTime)
-    end = Column(DateTime)
     type = Column(String, nullable=False)
+    start = Column(DateTime)
+    reserved = Column(Integer)
     def __repr__(self):
         return f'<Leave {self.id!r}>'
 
 leaves_type = {
-        'Personal_Leave':{'type':'PS', 'coeff':1},
-        'Sick_Leave':{'type':'SK', 'coeff':0.5},
-        'Business_Leave':{'type':'BN', 'coeff':1},
-        'Deferred_Leave':{'type':'DF', 'coeff':1},
-        'Annual_Leave':{'type':'AA', 'coeff':1},
-        'Marital_Leave':{'type':'MT', 'coeff':1},
-        'Maternity_Leave':{'type':'MN', 'coeff':1},
+        'Personal_Leave':{'type':'PS', 'unit':2},
+        'Sick_Leave':{'type':'SK', 'unit':4},
+        'Business_Leave':{'type':'BN', 'unit':2},
+        'Deferred_Leave':{'type':'DF', 'unit':2},
+        'Annual_Leave':{'type':'AA', 'unit':4},
+        'Marital_Leave':{'type':'MT', 'unit':4},
+        'Maternity_Leave':{'type':'MN', 'unit':4},
     }
     
 class Staffs(Base):
@@ -256,25 +256,22 @@ class table_generator:
     
     def leave_dataframe(self):
         leave_dict = {}
-        for i in [i for i in Staffs.__dict__.keys() if 'Leave_time' in i]:
-            result = getattr(self.staff, i)
-            if result != []:
-                leave_dict[i] = result
+        for i in self.staff.Leaves_time:
+            print(i)
+            for k,v in leaves_type.items():
+                if i.type == v['type']:
+                    leave_type = k
+            leave_dict[f'{leave_type}_{i.id}'] = [i.start, i.end]
+            
         print(leave_dict)
         
-        d = {}
-        _set = set()
-        for i in leave_dict.keys():
-            _obj_lst = leave_dict[i]
-            for u in range(len(_obj_lst)):
-                _obj = _obj_lst[u]
-                d[f'{i}_{u}'] = [_obj.start, _obj.end]
-                if _obj.start != None and _obj.end != None:
-                    for v in pd.date_range(start=_obj.start.date(), end=_obj.end.date()):
-                        _set.add(v)
-        leave_df = pd.DataFrame.from_dict(d, orient='index', columns=['start', 'end']).reset_index()
+        '''_set = set()        
+        if _obj.start != None and _obj.end != None:
+            #for v in pd.date_range(start=_obj.start.date(), end=_obj.end.date()):
+                _set.add(v)'''
+        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['start', 'end'])[::-1].reset_index()
         
-        return leave_df, d
+        return leave_df, leave_dict
 
     def check_dataframe(self):
         date_index = self.calendar.date_index.date

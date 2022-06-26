@@ -28,6 +28,7 @@ def strf_datetime(dt) -> str:
 # custom
 import config
 import db
+from forms import RegistrationForm
 
 checkin_img_url = "https://img.onl/f41SeX"
 checkout_img_url = "https://img.onl/BMdSLf"
@@ -64,6 +65,9 @@ def staff():
         redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}date_check?staff={d.get("/date_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
     elif d.get('/season_check/name') != None:
         redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}season_check?staff={d.get("/season_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
+    elif d.get('/leave_form/name') != None:
+        pass
+        redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}leave_form?staff={d.get("/leave_form/name")}' #http://localhost:5003/hiStaff_dashapp/...
     return redirect(redirect_url)
 
 
@@ -104,11 +108,15 @@ def callback():
 
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-
+    #print(event)
     now_datetime = datetime.now()
 
     user_id = event.source.user_id
     user = db.get_or_create_user(user_id=user_id)
+    msg_source = event.source.type
+    if msg_source == 'group':
+        group_id = event.source.group_id
+
     msg_text = str(event.message.text).lower()
     msg_reply = None
 
@@ -132,6 +140,13 @@ def handle_message(event):
                         TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
                         ]
         elif msg_text in ['take a leave_start']:
+            msg_reply = TemplateSendMessage(alt_text='Take a Leave',
+                                            template=ButtonsTemplate(text='Take a Leave',
+                                                                    actions=URIAction(label=f"Leave Form", 
+                                                                                    uri=f'{config.dash_liff}/leave_form/name={staff_integrity.staff_name}'),
+                                                                    )
+                                            ),
+                                            
             msg_reply = TextSendMessage(text="Scroll Right to select your type of leave",
                                         quick_reply=QuickReply(items=[
                                                                 QuickReplyButton(action=PostbackAction(label="Personal_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Personal_Leave_start&moment={now_datetime}')),
@@ -145,15 +160,13 @@ def handle_message(event):
                                                                 )
                                 )
 
-    if (msg_reply is None): 
-        msg_reply = [
-            TextSendMessage(text='''Not your business''')
-        ]
-    
-    config.line_bot_api.reply_message(
-        event.reply_token,
-        msg_reply
-        )
+    if (msg_reply != None) and (msg_source != 'group'): 
+        config.line_bot_api.reply_message(
+            event.reply_token,
+            msg_reply
+            )
+    else:
+        pass
 
 @config.handler.add(PostbackEvent)
 def handle_postback(event):

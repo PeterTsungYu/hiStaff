@@ -41,23 +41,16 @@ def init_dashboard(server):
 
 
 def init_callbacks():
-
-    now_date = datetime.now().date()
-
     # dash components
     check_h1 = html.H1(id='check_h1')
     check_datepicker = dcc.DatePickerRange(
                         id='check_datepicker',
                         min_date_allowed=date(1992, 1, 25),
-                        max_date_allowed=now_date,
-                        initial_visible_month=now_date,
-                        start_date=(now_date  - pd.offsets.MonthBegin(1)).date(),
-                        end_date=now_date
-        )
-    table_style = {
-        'width':'95%', 
-        #'background-color': '#0074D9'
-        }
+                        max_date_allowed=date(2100, 1, 25),
+                        initial_visible_month=datetime.now().date(),
+                        start_date=(datetime.now().date()  - pd.offsets.MonthBegin(1)).date(),
+                        end_date=datetime.now().date()
+    )
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
     mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
     season_check_datatable_div = html.Div(id='season_check_datatable_div', style=table_style)
@@ -76,8 +69,14 @@ def init_callbacks():
     year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown', placeholder="Select A Year",)
     season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
     index_link = dcc.Link(id='index_link', href='')
+
+
+    table_style = {
+        'width':'95%', 
+        #'background-color': '#0074D9'
+    }
     def check_table(check_df):
-        print(check_df.columns)
+        #print(check_df.columns)
         datatable = DataTable(
                             id='check_datatable',
                             columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
@@ -121,7 +120,7 @@ def init_callbacks():
                                     },
                                 {
                                     'if': {
-                                        'filter_query': '{date} > ' + f'{(now_date-pd.offsets.DateOffset(days=2)).date().strftime("%m/%d/%Y")}',
+                                        'filter_query': '{date} > ' + f'{(datetime.now().date()-pd.offsets.DateOffset(days=2)).date().strftime("%m/%d/%Y")}',
                                         'column_id': ['checkin', 'checkout']
                                         },
                                     'backgroundColor': '#7FDBFF',
@@ -150,6 +149,23 @@ def init_callbacks():
                         )
         return datatable
     
+    # leave form objs
+    leave_type_dropdown = dcc.Dropdown(id='leave_type_dropdown', options={v['type']:k for (k,v) in db.leaves_type.items()},)
+    leave_start_datetime_picker = dcc.DatePickerRange(
+                                    id='leave_start_datetime_picker',
+                                    min_date_allowed=date(1992, 1, 25),
+                                    max_date_allowed=date(2100, 1, 25),
+    )
+    reserved_amount_input = dcc.Input(
+                                id="reserved_amount_input", type="number", placeholder="Reserve the number of units",
+                                min=1, max=20, step=1,
+    )
+    leave_button = dcc.ConfirmDialogProvider(
+        children=html.Button('Click to take a leave',),
+        id='leave_button',
+        message='Ready to submit your day-off request. Pls double make sure it.'
+    )
+
     # dcc store
     personal_data_store = dcc.Store(id='personal_data_store')
     previous_check_store = dcc.Store(id='previous_check_store')
@@ -165,6 +181,16 @@ def init_callbacks():
         personal_data_store,
     ])]
 
+    leave_form = [html.Div([
+        check_h1,
+        leave_type_dropdown,
+        html.Br(),
+        leave_start_datetime_picker,
+        reserved_amount_input,
+        html.Br(),
+        leave_button
+    ])]
+
     check_layout = [html.Div([
         check_h1,
         check_datepicker,
@@ -173,7 +199,7 @@ def init_callbacks():
         change_string,
         check_button,
         html.Br(),
-        #leave_datatable_div,
+        leave_datatable_div,
         html.Br(),
         check_link,
         html.Br(),
@@ -259,7 +285,7 @@ def init_callbacks():
             Output('previous_check_store', 'data'),
             Output('agg_check_store', 'data'),
             Output('sum_string', 'children'),
-            #Output('leave_datatable_div', 'children'),
+            Output('leave_datatable_div', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -276,7 +302,7 @@ def init_callbacks():
         agg_check = check_df['aggregation[hr]'].iloc[0]
 
         # leave
-        #leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
+        leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
 
         return [
             check_table(check_df), 
@@ -285,11 +311,11 @@ def init_callbacks():
             [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
             html.Div(f"Required hours: {required_hours} [hr]."), 
             html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),],
-            #check_table(leave_df)
+            check_table(leave_df)
         ]
 
 
-    # only the last three row could be editable
+    # only the last seven row could be editable
     # match certin string format
     r = re.compile('\d{2}:\d{2}:\d{2}')
     @callback(
@@ -299,6 +325,7 @@ def init_callbacks():
         State('previous_check_store', 'data'),]
         )
     def update_lastcells(timestamp, data, data_previous):
+        print(data)
         data_previous = pd.read_json(data_previous, orient='split').to_dict(orient='records')
         if (data != None) and (data_previous) != None:
             for i in range(len(data)):
@@ -306,7 +333,7 @@ def init_callbacks():
                     if data[i][col] is not None:
                         if (r.match(data[i][col]) is None):
                             data[i][col] = 'HH:MM:SS'
-                    if i >= 3:
+                    if i >= 30:
                         #print(i, data[i][col], data_previous[i][col])
                         data[i][col] = data_previous[i][col]
                     else:
@@ -452,7 +479,7 @@ def init_callbacks():
         return children, href
     
 
-    # route to check_layout / index_page
+    # route to check_layout / index_page / leave_form
     @callback(
         [
             Output('page_content', 'children'),
@@ -463,12 +490,24 @@ def init_callbacks():
             ]
         )
     def display_page(pathname, search):
+        
+        # datetime init
+        check_datepicker.initial_visible_month = datetime.now().date()
+        check_datepicker.start_date = (datetime.now().date()  - pd.offsets.MonthBegin(1)).date()
+        check_datepicker.end_date = datetime.now().date()
+
+        leave_start_datetime_picker.initial_visible_month = datetime.now().date()
+        leave_start_datetime_picker = datetime.now().date()
+
+
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
         if 'date_check' in check_type:
             other_type = '/season_check'
-        else:
+        elif '/season_check' in check_type:
             other_type = '/date_check'
+        elif 'leave_form' in check_type:
+            pass
         
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         personal_data_store.data = {'staff':staff}
@@ -488,6 +527,8 @@ def init_callbacks():
             return my_check_layout
         elif check_type == '/season_check_all':
             return season_check_layout
+        elif check_type == '/leave_form':
+            return leave_form
         else:
             return index_page
         # You could also return a 404 "URL not found" page here
