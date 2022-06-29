@@ -2,13 +2,15 @@
 from distutils.log import debug
 from dash import Dash, dcc, html, callback, Input, Output, dash_table, State
 from dash.dash_table import DataTable
+from dash.exceptions import PreventUpdate
 from urllib.parse import urlparse, unquote, parse_qsl
 import dash_bootstrap_components as dbc
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pandas as pd
 import json
 import numpy as np
 import re
+import time
 
 # custom
 import db
@@ -41,6 +43,12 @@ def init_dashboard(server):
 
 
 def init_callbacks():
+    
+    table_style = {
+        'width':'95%', 
+        #'background-color': '#0074D9'
+    }
+
     # dash components
     check_h1 = html.H1(id='check_h1')
     check_datepicker = dcc.DatePickerRange(
@@ -70,11 +78,6 @@ def init_callbacks():
     season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
     index_link = dcc.Link(id='index_link', href='')
 
-
-    table_style = {
-        'width':'95%', 
-        #'background-color': '#0074D9'
-    }
     def check_table(check_df):
         #print(check_df.columns)
         datatable = DataTable(
@@ -140,7 +143,7 @@ def init_callbacks():
                                     for column, value in row.items()
                                     
                                 } 
-                                for row in check_df.to_dict('records')[:3]
+                                for row in check_df.to_dict('records')[:]
                             ],
                             tooltip_delay=0,
                             tooltip_duration=None,
@@ -150,21 +153,47 @@ def init_callbacks():
         return datatable
     
     # leave form objs
-    leave_type_dropdown = dcc.Dropdown(id='leave_type_dropdown', options={v['type']:k for (k,v) in db.leaves_type.items()},)
-    leave_start_datetime_picker = dcc.DatePickerRange(
-                                    id='leave_start_datetime_picker',
-                                    min_date_allowed=date(1992, 1, 25),
-                                    max_date_allowed=date(2100, 1, 25),
+    leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1")
+    leave_card = dbc.Card([
+                    dbc.CardHeader("Leave Form"),
+                    dbc.CardBody(
+                        [
+                            html.H5("Leave Type", className="card-title"),
+                            html.P(id='leave_unit'),
+                            dcc.RadioItems(
+                                id="leave_type_radio",
+                                options={v['type']:k for (k,v) in db.leaves_type.items()},
+                                style={'width':'25%', 'font-size': 20}
+                            ),
+                            html.Br(),
+                            html.H5("Leave Start", className="card-title"),
+                            leave_start_datetime_picker,
+                            html.Br(),
+                            html.Br(),
+                            html.H5("Reserved Amount", className="card-title"),
+                            dcc.Slider(id="reserved_amount_slider", min=1, max=8, step=1, value=1),
+                            html.Br(),
+                            html.H5("Leave End", className="card-title"),
+                            html.P(id='leave_end'),
+                            html.Br(),
+                            dcc.ConfirmDialogProvider(
+                                children=html.Button('Click to take a leave',),
+                                id='leave_button',
+                                message='Ready to submit your day-off request. Pls double make sure it.'
+                            ),
+                        ]
+                    ),
+                    ]
     )
-    reserved_amount_input = dcc.Input(
-                                id="reserved_amount_input", type="number", placeholder="Reserve the number of units",
-                                min=1, max=20, step=1,
+    leave_cards = dbc.Row(
+        [
+            dbc.Col(html.Div(), width='auto'),
+            dbc.Col(leave_card, width=10),
+            dbc.Col(html.Div(), width='auto'),
+        ],
+        justify="center"
     )
-    leave_button = dcc.ConfirmDialogProvider(
-        children=html.Button('Click to take a leave',),
-        id='leave_button',
-        message='Ready to submit your day-off request. Pls double make sure it.'
-    )
+    total_leave_datatable_div = html.Div(id='total_leave_datatable_div', style=table_style)
 
     # dcc store
     personal_data_store = dcc.Store(id='personal_data_store')
@@ -183,12 +212,9 @@ def init_callbacks():
 
     leave_form = [html.Div([
         check_h1,
-        leave_type_dropdown,
+        leave_cards,
         html.Br(),
-        leave_start_datetime_picker,
-        reserved_amount_input,
-        html.Br(),
-        leave_button
+        total_leave_datatable_div,
     ])]
 
     check_layout = [html.Div([
@@ -221,6 +247,7 @@ def init_callbacks():
         html.Div([year_dropdown, season_dropdown], style={"width": "25%"}),
         season_check_datatable_div,
     ])]
+
 
     # year and quarter picker for check_table
     @callback(
@@ -278,6 +305,85 @@ def init_callbacks():
         ]
 
 
+    @callback(
+    [   
+        Output('leave_unit', 'children'),
+        Output('reserved_amount_slider', 'max'),
+        Output('leave_end', 'children'),
+    ],
+    [
+        Input('leave_start_datetime_picker', 'value'),
+        Input('reserved_amount_slider', 'value'),        
+        Input('leave_type_radio', 'value'),
+    ],
+    )
+    def update_on_leave_start_amount(leave_start, reserved_amount, leave_type) :
+        _lst = [leave_start, reserved_amount, leave_type]
+        if any(_arg == None for _arg in _lst):
+            raise PreventUpdate
+        else:
+            print(leave_start)
+            leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+            for k,v in db.leaves_type.items():
+                if leave_type == v['type']:
+                    _unit = v['unit']
+                    _type = k
+                    break
+            leave_unit_children = f'Minimum {_unit}hr per {_type}'
+            if _unit < 8:
+                max = 8/_unit
+                if reserved_amount > max:
+                    reserved_amount = max
+                print(timedelta(hours=_unit*reserved_amount))
+                leave_end = (leave_start + timedelta(hours=_unit*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
+                print(leave_end)
+            else:
+                max = 5
+                if reserved_amount > max:
+                    reserved_amount = max
+                leave_end = (leave_start + timedelta(days=_unit/8*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
+            return leave_unit_children, max, [leave_end]
+
+
+    @callback(
+        [
+            Output('total_leave_datatable_div', 'children'),
+        ],
+        [
+            Input('leave_button', 'submit_n_clicks'),
+        ],
+        [
+            State('url', 'search'),
+            State('url', 'pathname'),
+            State('leave_type_radio', 'value'),
+            State('leave_start_datetime_picker', 'value'),
+            State('leave_end', 'children'),
+            State('reserved_amount_slider', 'value'),
+        ]
+    )
+    def take_a_leave_to_db(submit_n_clicks, search, pathname, leave_type, leave_start, leave_end, leave_reserved):
+        print(submit_n_clicks)
+        if submit_n_clicks is None:
+            raise PreventUpdate
+        else:    
+            print(leave_end)
+            staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+            start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+            end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
+            db.db_session.add(db.Leaves(
+                staff_name=staff_name, 
+                type=leave_type, 
+                start=start,
+                end=end,  
+                reserved=leave_reserved
+                ))
+            db.db_session.commit()
+
+            leave_df = db.table_generator(start, end, staff_name).leave_dataframe()
+            leave_table = dash_table.DataTable(leave_df.to_dict('records'), [{"name": i, "id": i} for i in leave_df.columns], style_table={'overflowX': 'auto','minWidth': '100%',})
+            return [check_table(leave_df)]
+
+
     # datepicker for check_table
     @callback(
         [
@@ -302,7 +408,7 @@ def init_callbacks():
         agg_check = check_df['aggregation[hr]'].iloc[0]
 
         # leave
-        leave_df, leave_d = db.table_generator(start_date, end_date, staff).leave_dataframe()
+        #leave_df = db.table_generator(start_date, end_date, staff).leave_dataframe()
 
         return [
             check_table(check_df), 
@@ -311,11 +417,12 @@ def init_callbacks():
             [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
             html.Div(f"Required hours: {required_hours} [hr]."), 
             html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),],
-            check_table(leave_df)
+            None
+            #check_table(leave_df)
         ]
 
 
-    # only the last seven row could be editable
+    # only the last 30 row could be editable
     # match certin string format
     r = re.compile('\d{2}:\d{2}:\d{2}')
     @callback(
@@ -496,26 +603,26 @@ def init_callbacks():
         check_datepicker.start_date = (datetime.now().date()  - pd.offsets.MonthBegin(1)).date()
         check_datepicker.end_date = datetime.now().date()
 
-        leave_start_datetime_picker.initial_visible_month = datetime.now().date()
-        leave_start_datetime_picker = datetime.now().date()
-
+        leave_start_datetime_picker.value = datetime.now()
 
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
+        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        personal_data_store.data = {'staff':staff}
+        config.logging.debug([check_type, staff])
+
         if 'date_check' in check_type:
             other_type = '/season_check'
+            check_link.children = staff + other_type
+            check_link.href = url_prefix + other_type + search
         elif '/season_check' in check_type:
             other_type = '/date_check'
+            check_link.children = staff + other_type
+            check_link.href = url_prefix + other_type + search
         elif 'leave_form' in check_type:
             pass
         
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
-        personal_data_store.data = {'staff':staff}
-
-        config.logging.debug([check_type, staff])
         check_h1.children = staff + check_type
-        check_link.children = staff + other_type
-        check_link.href = url_prefix + other_type + search
         home_link.children = staff + '/Sweet Home'
         home_link.href = url_prefix + search
 

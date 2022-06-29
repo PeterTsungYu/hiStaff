@@ -42,21 +42,22 @@ def init_db():
     if inspect(engine).has_table('staffs_table'):
         _staff_lst = db_session.query(Staffs).order_by(Staffs.id).all()
 
-        if len(staff_lst) == len(_staff_lst):
-            for i in range(len(staff_lst)):
-                if staff_lst[i].staff_name != _staff_lst[i].staff_name:
+        if len(Staff_profile_name_lst) == len(_staff_lst):
+            for i in range(len(Staff_profile_name_lst)):
+                if Staff_profile_name_lst[i] != _staff_lst[i].staff_name:
                     db_session.query(Staffs).delete()
-                    db_session.add_all(staff_lst) # a way to insert many query
+                    db_session.add_all(Staff_profile_lst) # a way to insert many query
                     break
         else:
             print(2)
             db_session.query(Staffs).delete()
-            db_session.add_all(staff_lst) # a way to insert many query
+            db_session.add_all(Staff_profile_lst) # a way to insert many query
         
     else:
         Base.metadata.create_all(bind=engine)
-        db_session.add_all(staff_lst)
+        db_session.add_all(Staff_profile_lst)
     db_session.commit()
+    db_session.remove()
     #config.logger.debug(db_session.query(Staffs).all())
 
 
@@ -108,18 +109,19 @@ class Leaves(Base):
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'), nullable=False)
     type = Column(String, nullable=False)
     start = Column(DateTime)
+    end = Column(DateTime) 
     reserved = Column(Integer)
     def __repr__(self):
         return f'<Leave {self.id!r}>'
 
 leaves_type = {
-        'Personal_Leave':{'type':'PS', 'unit':2},
-        'Sick_Leave':{'type':'SK', 'unit':4},
-        'Business_Leave':{'type':'BN', 'unit':2},
-        'Deferred_Leave':{'type':'DF', 'unit':2},
-        'Annual_Leave':{'type':'AA', 'unit':4},
-        'Marital_Leave':{'type':'MT', 'unit':4},
-        'Maternity_Leave':{'type':'MN', 'unit':4},
+        'Personal_Leave':{'type':'PS', 'unit':2}, #[hr]
+        'Sick_Leave':{'type':'SK', 'unit':4}, #[hr]
+        'Business_Leave':{'type':'BN', 'unit':2}, #[hr]
+        'Deferred_Leave':{'type':'DF', 'unit':2}, #[hr]
+        'Annual_Leave':{'type':'AA', 'unit':4}, #[hr]
+        'Marital_Leave':{'type':'MT', 'unit':8}, #[hr]
+        'Maternity_Leave':{'type':'MN', 'unit':8}, #[hr]
     }
     
 class Staffs(Base):
@@ -133,18 +135,21 @@ class Staffs(Base):
     Annual_Leave = Column(Float, default=10.0)
     Marital_Leave = Column(Float, default=7.0)
     Maternity_Leave = Column(Float, default=7.0)
+    '''
     def __repr__(self):
         return f'<Staff {self.staff_name!r}>'
+    '''
 
 Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 
-staff_lst = [
+Staff_profile_lst = [
     Staffs(staff_name='謝宗佑', Annual_Leave=10),
     Staffs(staff_name='佳嶸'),
     #Staffs(staff_name='Jessie'),
     ]
+Staff_profile_name_lst = [i.staff_name for i in Staff_profile_lst]
 
 class season_table_generator:
     def __init__(self, staff_name, year, season):
@@ -255,23 +260,17 @@ class table_generator:
         return df
     
     def leave_dataframe(self):
+        #date_index = self.calendar.date_index.date
+        #print(date_index)
         leave_dict = {}
         for i in self.staff.Leaves_time:
-            print(i)
             for k,v in leaves_type.items():
                 if i.type == v['type']:
                     leave_type = k
-            leave_dict[f'{leave_type}_{i.id}'] = [i.start, i.end]
-            
-        print(leave_dict)
-        
-        '''_set = set()        
-        if _obj.start != None and _obj.end != None:
-            #for v in pd.date_range(start=_obj.start.date(), end=_obj.end.date()):
-                _set.add(v)'''
-        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['start', 'end'])[::-1].reset_index()
-        
-        return leave_df, leave_dict
+            leave_dict[f'{i.id}'] = [leave_type, i.start, i.reserved, i.end]
+        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'reserved', 'end'])[::-1].reset_index()
+        print(leave_df)
+        return leave_df
 
     def check_dataframe(self):
         date_index = self.calendar.date_index.date
@@ -298,6 +297,7 @@ class table_generator:
 
         required_hours = (self.calendar.bdays_bool_df() * 9).sum()[0]
         
+        #print(df, required_hours)
         return df, required_hours
 
 ##======================line_msg==================================
@@ -430,4 +430,4 @@ def reply_dash_msg():
 
 if __name__ == "__main__":
     #season_table_generator(year=2022, season='Q1').check_dataframe()
-    table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').leave_dataframe()
+    table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()

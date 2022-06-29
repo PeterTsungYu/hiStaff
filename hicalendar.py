@@ -2,7 +2,7 @@ from pandas.tseries.holiday import AbstractHolidayCalendar, Holiday
 from pandas.tseries.offsets import Day, CustomBusinessDay
 import pandas as pd
 from datetime import date
-from pandas.tseries.offsets import CDay
+from pandas.tseries.offsets import CDay # custom business day
 
 class hiCalendar(AbstractHolidayCalendar):
     rules = [

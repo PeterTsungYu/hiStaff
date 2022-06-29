@@ -28,7 +28,6 @@ def strf_datetime(dt) -> str:
 # custom
 import config
 import db
-from forms import RegistrationForm
 
 checkin_img_url = "https://img.onl/f41SeX"
 checkout_img_url = "https://img.onl/BMdSLf"
@@ -58,18 +57,20 @@ def home():
         body="This is a homepage served with Flask."
     ) 
 
+'''
 @app.route('/staff')
 def staff():
     d = dict(parse_qsl(request.args.get('liff.state')))
+    print(request.url)
     if d.get('/date_check/name') != None:
         redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}date_check?staff={d.get("/date_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
     elif d.get('/season_check/name') != None:
         redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}season_check?staff={d.get("/season_check/name")}' #http://localhost:5003/hiStaff_dashapp/...
     elif d.get('/leave_form/name') != None:
-        pass
         redirect_url = f'{url_for(f".{config.dash_prefix}/", _external=False)}leave_form?staff={d.get("/leave_form/name")}' #http://localhost:5003/hiStaff_dashapp/...
+        print(redirect_url)
     return redirect(redirect_url)
-
+'''
 
 @config.handler.add(FollowEvent)
 def handle_follow(event):
@@ -94,7 +95,7 @@ def callback():
 
     # get request body as text
     body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    #app.logger.info("Request body: " + body)
 
     # handle webhook body
     try:
@@ -111,54 +112,55 @@ def handle_message(event):
     #print(event)
     now_datetime = datetime.now()
 
-    user_id = event.source.user_id
-    user = db.get_or_create_user(user_id=user_id)
     msg_source = event.source.type
-    if msg_source == 'group':
-        group_id = event.source.group_id
-
     msg_text = str(event.message.text).lower()
     msg_reply = None
 
-    staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
-    if staff_integrity != None:
-        if msg_text in ['check in']:
-            msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
-        elif msg_text in ['check out']:
-            msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
-        elif msg_text in ['personal dashboard']:
-            msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
-                                            template=ButtonsTemplate(text='Peek ur dashboard',
-                                                                    actions=[URIAction(label=f"Check Table", 
-                                                                                    uri=f'{config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
-                                                                            URIAction(label=f"Season Table", 
-                                                                                    uri=f'{config.dash_liff}/season_check/name={staff_integrity.staff_name}')
-                                                                                    ]
-                                                                )
-                                                                ),
-                        TextSendMessage(text=f'Your personal check table: {config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
-                        TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
-                        ]
-        elif msg_text in ['take a leave_start']:
-            msg_reply = TemplateSendMessage(alt_text='Take a Leave',
-                                            template=ButtonsTemplate(text='Take a Leave',
-                                                                    actions=URIAction(label=f"Leave Form", 
-                                                                                    uri=f'{config.dash_liff}/leave_form/name={staff_integrity.staff_name}'),
+    if msg_source == 'group':
+        group_id = event.source.group_id
+    else:
+        user_id = event.source.user_id
+        user = db.get_or_create_user(user_id=user_id)
+        staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
+        if staff_integrity != None:
+            if msg_text in ['check in']:
+                msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
+            elif msg_text in ['check out']:
+                msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
+            elif msg_text in ['personal dashboard']:
+                msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
+                                                template=ButtonsTemplate(text='Peek ur dashboard',
+                                                                        actions=[URIAction(label=f"Check Table", 
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/date_check?staff={staff_integrity.staff_name}'),
+                                                                                URIAction(label=f"Season Table", 
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/season_check?staff={staff_integrity.staff_name}')
+                                                                                        ]
                                                                     )
-                                            ),
-                                            
-            msg_reply = TextSendMessage(text="Scroll Right to select your type of leave",
-                                        quick_reply=QuickReply(items=[
-                                                                QuickReplyButton(action=PostbackAction(label="Personal_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Personal_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Sick_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Sick_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Business_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Business_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Deffered_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Deffered_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Annual_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Annual_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Marital_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Marital_Leave_start&moment={now_datetime}')),
-                                                                QuickReplyButton(action=PostbackAction(label="Maternity_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Maternity_Leave_start&moment={now_datetime}')),
-                                                                ]
-                                                                )
-                                )
+                                                                    ),
+                            #TextSendMessage(text=f'Your personal check table: {config.dash_liff}/date_check/name={staff_integrity.staff_name}'),
+                            #TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
+                            ]
+            elif msg_text in ['take a leave_start']:
+                msg_reply = TemplateSendMessage(alt_text='Take a Leave',
+                                                template=ButtonsTemplate(text='Take a Leave',
+                                                                        actions=[URIAction(label=f"Leave Form", 
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/leave_form?staff={staff_integrity.staff_name}'),
+                                                                        ])
+                                                ),
+                '''
+                msg_reply = TextSendMessage(text="Scroll Right to select your type of leave",
+                                            quick_reply=QuickReply(items=[
+                                                                    QuickReplyButton(action=PostbackAction(label="Personal_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Personal_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Sick_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Sick_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Business_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Business_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Deffered_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Deffered_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Annual_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Annual_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Marital_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Marital_Leave_start&moment={now_datetime}')),
+                                                                    QuickReplyButton(action=PostbackAction(label="Maternity_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Maternity_Leave_start&moment={now_datetime}')),
+                                                                    ]
+                                                                    )
+                                    )
+                '''                                
 
     if (msg_reply != None) and (msg_source != 'group'): 
         config.line_bot_api.reply_message(
@@ -207,58 +209,58 @@ def handle_postback(event):
                 now = datetime.now()
                 config.logging.debug(now)
                 if check == 'checkin':
-                    for i in [0,1]:    
-                        if i == 0 and last_checkin != None:
-                            last_checkin_moment = last_checkin.created_time
-                            # case: check already
-                            if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
-                                msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
-                                break
-                            # case: first time check
+                    for i in [0]:    
+                        if i == 0: 
+                        # compared to the last check
+                            if last_checkin != None:
+                                last_checkin_moment = last_checkin.created_time
+                                # case: check already
+                                if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
+                                    msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                    break
                             else:
-                                continue
+                            # case: check correctly or first time check
+                                checkin = db.CheckIn(staff_name=staff_name, created_time=moment)
+                                db.db_session.add(checkin)
+                                db.db_session.commit()
+                                if (moment.hour > 8) :
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='You are late! Slacker!')]
+                                elif (moment.hour == 8) and (moment.hour > 30):
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Close...but you are still late!')]
+                                else:
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')]  
+                        '''
                         # case: check prior
                         if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
                             msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
-                        # case: check correctly
-                        else: 
-                            checkin = db.CheckIn(staff_name=staff_name, created_time=moment)
-                            db.db_session.add(checkin)
-                            db.db_session.commit()
-                            if (moment.hour > 8) :
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='You are late! Slacker!')]
-                            elif (moment.hour == 8) and (moment.hour > 30):
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Close...but you are still late!')]
-                            else:
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')]  
+                        '''    
                 elif check == 'checkout': 
                     for i in [0,1,2]:
-                        if i == 0 and last_checkout != None:
-                            last_checkout_moment = last_checkout.created_time
-                            # case: check already
-                            if (moment.year == last_checkout_moment.year) and (moment.month == last_checkout_moment.month) and (moment.day == last_checkout_moment.day):
-                                msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
-                                break
-                            # case: first time check
+                        if i == 0:
+                        # compared to the last check
+                            if last_checkout != None:
+                                last_checkout_moment = last_checkout.created_time
+                                # case: check already
+                                if (moment.year == last_checkout_moment.year) and (moment.month == last_checkout_moment.month) and (moment.day == last_checkout_moment.day):
+                                    msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                    break
+                        # case: compared to the checkin table
+                        elif i == 1:
+                            if  last_checkin != None:
+                                last_checkin_moment = last_checkin.created_time
+                                if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
+                                    msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
+                                    continue
+                                elif moment.timestamp() < last_checkin_moment.timestamp():
+                                    msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
+                                    break
                             else:
+                                msg_reply = TextSendMessage(text=f"U've never checked in before. Unbelievable.")
                                 continue
-                        # case: compared to the other check table
-                        if i == 1 and last_checkin != None:
-                            last_checkin_moment = last_checkin.created_time
-                            if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
-                                msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
-                                continue
-                            elif moment.timestamp() < last_checkin_moment.timestamp():
-                                msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
-                                break
-                            else:
-                                continue
-                        # case: check belatedly
-                        if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
-                            msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
-                        # case: check correctly
-                        else:
+                            # case: check correctly and first time check
+                        elif i == 2:
                             checkout = db.CheckOut(staff_name=staff_name, created_time=moment)
+                            print('check here')
                             db.db_session.add(checkout)
                             db.db_session.commit()
                             if (moment.hour > 17) :
@@ -267,6 +269,11 @@ def handle_postback(event):
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Efficiency is your motto!')]
                             else:
                                 msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
+                        '''
+                        # case: check belatedly
+                        if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
+                            msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
+                        '''    
                 elif '_Leave_start' in check :
                     try:
                         db.db_session.add(db.Leaves(staff_name=staff_name, start=moment, type=db.leaves_type[check.strip('_start')]['type']))
