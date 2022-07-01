@@ -193,7 +193,20 @@ def init_callbacks():
         ],
         justify="center"
     )
-    total_leave_datatable_div = html.Div(id='total_leave_datatable_div', style=table_style)
+    total_leave_datatable_cards = dbc.Row(
+        [
+            dbc.Col(html.Div(), width='auto'),
+            dbc.Col(dbc.Card([
+                        dbc.CardHeader("Yearly Leave Form"),
+                        dbc.CardBody([
+                            html.Div(id='total_leave_datatable_div', style=table_style)
+                        ])
+                        ]), 
+                    width=10),
+            dbc.Col(html.Div(), width='auto'),
+        ],
+        justify="center"
+    )
 
     # dcc store
     personal_data_store = dcc.Store(id='personal_data_store')
@@ -214,7 +227,7 @@ def init_callbacks():
         check_h1,
         leave_cards,
         html.Br(),
-        total_leave_datatable_div,
+        total_leave_datatable_cards,
     ])]
 
     check_layout = [html.Div([
@@ -362,26 +375,41 @@ def init_callbacks():
         ]
     )
     def take_a_leave_to_db(submit_n_clicks, search, pathname, leave_type, leave_start, leave_end, leave_reserved):
-        print(submit_n_clicks)
-        if submit_n_clicks is None:
-            raise PreventUpdate
-        else:    
-            print(leave_end)
-            staff_name = dict(parse_qsl(unquote(search))).get('?staff')
-            start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
-            end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
-            db.db_session.add(db.Leaves(
-                staff_name=staff_name, 
-                type=leave_type, 
-                start=start,
-                end=end,  
-                reserved=leave_reserved
-                ))
-            db.db_session.commit()
+        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+        start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
 
-            leave_df = db.table_generator(start, end, staff_name).leave_dataframe()
-            leave_table = dash_table.DataTable(leave_df.to_dict('records'), [{"name": i, "id": i} for i in leave_df.columns], style_table={'overflowX': 'auto','minWidth': '100%',})
-            return [check_table(leave_df)]
+        if submit_n_clicks:
+            _lst = [leave_type, leave_start, leave_end, leave_reserved]
+            if not any(_arg == None for _arg in _lst):
+                print(leave_end)
+                end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
+                db.db_session.add(db.Leaves(
+                    staff_name=staff_name, 
+                    type=leave_type, 
+                    start=start,
+                    end=end,  
+                    reserved=leave_reserved
+                    ))
+                db.db_session.commit()    
+
+        leave_df = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff_name).leave_dataframe()
+        leave_table = dash_table.DataTable(
+            leave_df.to_dict('records'), 
+            [{"name": i, "id": i} for i in leave_df.columns], 
+            row_deletable=True,
+            style_table={'overflowX': 'auto','minWidth': '100%',},
+            style_cell={ 
+                        'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                        'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                        'whiteSpace': 'normal',
+                        'height': '35px',
+                        },
+            style_header={
+                        'backgroundColor': '#0074D9',
+                        'color': 'white'
+                        },
+            )
+        return [leave_table]
 
 
     # datepicker for check_table

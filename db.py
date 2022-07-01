@@ -267,8 +267,9 @@ class table_generator:
             for k,v in leaves_type.items():
                 if i.type == v['type']:
                     leave_type = k
-            leave_dict[f'{i.id}'] = [leave_type, i.start, i.reserved, i.end]
-        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'reserved', 'end'])[::-1].reset_index()
+                    leave_unit = v['unit']
+            leave_dict[f'{i.id}'] = [leave_type, i.start, i.reserved, leave_unit, i.end]
+        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'reserved', 'unit', 'end'])[::-1].reset_index()
         print(leave_df)
         return leave_df
 
