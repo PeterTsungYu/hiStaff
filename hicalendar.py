@@ -1,7 +1,7 @@
 from pandas.tseries.holiday import AbstractHolidayCalendar, Holiday
 from pandas.tseries.offsets import Day, CustomBusinessDay
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 from pandas.tseries.offsets import CDay # custom business day
 
 class hiCalendar(AbstractHolidayCalendar):
@@ -14,29 +14,37 @@ class hiCalendar(AbstractHolidayCalendar):
     def __init__(self, start, end):
         self.start=start
         self.end=end
-        self.bdate_index = pd.bdate_range(start=self.start, # custom business days
-                                            end=self.end,
-                                            freq=CDay(calendar=self))
-
-        self.date_index = pd.date_range(start=self.start,  # all dates
-                                end=self.end,
-                                freq='D')
-
-        self.hdate_index = self.holidays(start=self.start,  # holidays date and name
+        self.date_index = pd.date_range( # all dates
+            start=self.start,  
+            end=self.end,
+            freq='D'
+            )
+    
+    def bdate(self):
+        # custom business days
+        return pd.bdate_range( 
+            start=self.start, 
+            end=self.end,
+            freq=CDay(calendar=self)
+            )   
+    def hdate(self):
+        # holidays date and name
+        return self.holidays(
+            start=self.start,  
             end=self.end, 
             return_name=True
             )
-
     def bdays_count(self):
-        series = pd.bdate_range(start=self.start,
-                                end=self.end,
-                                freq=CDay(calendar=self)).to_series()
+        series = self.bdate().to_series()
         return series.groupby(series.dt.month).count().head()
 
-    def bdays_bool_df(self):
-        print(self.hdate_index['2022-01-01'])
-        weekday_name = lambda date: self.hdate_index[date] if date in self.hdate_index.index else ('weekend' if date.weekday()+1 in [6,7] else f'{date.weekday()+1}')
-        return pd.DataFrame(data=[(weekday_name(i), True) if i in self.bdate_index else (weekday_name(i), False) for i in self.date_index] ,index=self.date_index, columns=['weekday', 'Working Day'])
+    def bdays_hdays(self):
+        bdate_index = self.bdate()
+        hdate_index = self.hdate()
+        weekday_name = lambda date: hdate_index[date] if date in hdate_index.index else ('weekend' if date.weekday()+1 in [6,7] else f'weekday_{date.weekday()+1}')
+        return pd.DataFrame(data=[(weekday_name(i), True) if i in bdate_index else (weekday_name(i), False) for i in self.date_index] ,index=self.date_index, columns=['weekday', 'Working Day'])
+        
+        
 
 # Creating a series of dates between the boundaries 
 # by using the custom calendar
@@ -47,9 +55,8 @@ class hiCalendar(AbstractHolidayCalendar):
 
 if __name__ == "__main__":
     cal = hiCalendar(date(2022, 1, 1), date(2022, 7, 30))
-    print(cal.bdays_bool_df().head(30))
-    #print(cal.date_index())
+    print(cal.bdays_hdays().loc[f'{datetime.now().date()}', 'Working Day'])
     #print(cal.holidays_index())
-    #print(cal.bdays_count())
+    #print(cal.bdays_count().sum()*9)
     
     # SQLAlchemy ORM conversion to pandas DataFrame

@@ -6,6 +6,7 @@ from dash.exceptions import PreventUpdate
 from urllib.parse import urlparse, unquote, parse_qsl
 import dash_bootstrap_components as dbc
 from datetime import datetime, date, timedelta
+from datetimerange import DateTimeRange
 import pandas as pd
 import json
 import numpy as np
@@ -15,6 +16,7 @@ import time
 # custom
 import db
 import config
+from hicalendar import hiCalendar
 
 url_prefix = config.dash_prefix
 
@@ -88,21 +90,16 @@ def init_callbacks():
                             filter_action="native",
                             sort_action="native",
                             sort_mode="multi",
-                            column_selectable=False,
-                            row_selectable=False,
-                            row_deletable=False,
-                            selected_columns=[],
-                            selected_rows=[],
                             page_action="native",
                             page_current= 0,
                             page_size= 10,
+                            style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': 65, 'maxWidth': 95, 'width': 95,
-                                'overflow': 'hidden',
-                                'textOverflow': 'ellipsis',
-                                'maxWidth': 0,
-                            },
+                                'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                                'whiteSpace': 'normal',
+                                'height': '35px',
+                                },
                             style_cell_conditional=[    # align text columns to left. By default they are aligned to right
                                 {
                                     'if': {'column_id': c},
@@ -196,12 +193,14 @@ def init_callbacks():
     total_leave_datatable_cards = dbc.Row(
         [
             dbc.Col(html.Div(), width='auto'),
-            dbc.Col(dbc.Card([
-                        dbc.CardHeader("Yearly Leave Form"),
-                        dbc.CardBody([
-                            html.Div(id='total_leave_datatable_div', style=table_style)
-                        ])
-                        ]), 
+            dbc.Col(
+                dbc.Card([
+                    dbc.CardHeader("Yearly Leave Form"),
+                    dbc.CardBody([
+                        html.P(id='leave_msg'),
+                        html.Div(id='total_leave_datatable_div', style=table_style)
+                    ])
+                    ]), 
                     width=10),
             dbc.Col(html.Div(), width='auto'),
         ],
@@ -335,7 +334,7 @@ def init_callbacks():
         if any(_arg == None for _arg in _lst):
             raise PreventUpdate
         else:
-            print(leave_start)
+            #print(leave_start)
             leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
             for k,v in db.leaves_type.items():
                 if leave_type == v['type']:
@@ -347,9 +346,9 @@ def init_callbacks():
                 max = 8/_unit
                 if reserved_amount > max:
                     reserved_amount = max
-                print(timedelta(hours=_unit*reserved_amount))
+                #print(timedelta(hours=_unit*reserved_amount))
                 leave_end = (leave_start + timedelta(hours=_unit*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
-                print(leave_end)
+                #print(leave_end)
             else:
                 max = 5
                 if reserved_amount > max:
@@ -360,6 +359,7 @@ def init_callbacks():
 
     @callback(
         [
+            Output('leave_msg', 'children'),
             Output('total_leave_datatable_div', 'children'),
         ],
         [
@@ -376,40 +376,72 @@ def init_callbacks():
     )
     def take_a_leave_to_db(submit_n_clicks, search, pathname, leave_type, leave_start, leave_end, leave_reserved):
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+        staff=db.db_session.query(db.Staffs).filter(db.Staffs.staff_name==staff_name).scalar()
         start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+        leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff_name)
 
+        leave_msg = 'Ready to take a leave. Pls Fill in all of leave_type, leave_start, leave_end, leave_reserved.'
         if submit_n_clicks:
             _lst = [leave_type, leave_start, leave_end, leave_reserved]
             if not any(_arg == None for _arg in _lst):
-                print(leave_end)
-                end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
-                db.db_session.add(db.Leaves(
-                    staff_name=staff_name, 
-                    type=leave_type, 
-                    start=start,
-                    end=end,  
-                    reserved=leave_reserved
-                    ))
-                db.db_session.commit()    
+                # compare with record_range
+                _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M:%S')
+                _end = datetime.strptime(leave_end[0],'%Y-%m-%d %H:%M:%S')
+                _timerange_start = _start.strftime("%Y-%m-%d %H:%M:%S")
+                _timerange_end = _end.strftime("%Y-%m-%d %H:%M:%S")
+                _leave_timerange = DateTimeRange(_timerange_start, _timerange_end)
+                _leave_daterange = pd.date_range(_start.date(), _end.date())
+                bdays_hdays_df = leave_table_generator.calendar.bdays_hdays()
+                _successful_record = True
+                for i in staff.Leaves_time:
+                    _record_start = i.start.strftime("%Y-%m-%d %H:%M:%S")
+                    _record_end = i.end.strftime("%Y-%m-%d %H:%M:%S")
+                    _record_range = DateTimeRange(_record_start, _record_end)
+                    if (_leave_timerange in _record_range) or (_record_range in _leave_timerange) or (_timerange_start in _record_range) or (_timerange_end in _record_range):
+                        _successful_record = False
+                        leave_msg = f'Failed leave_record. Overlapping {_leave_timerange} to {_record_range}.'
+                        break
+                for i in _leave_daterange:
+                    #print(bdays_hdays_df.loc[f'{i.date()}'])
+                    if not bdays_hdays_df.loc[f'{i.date()}', 'Working Day']:
+                        _successful_record = False
+                        leave_msg = f'Failed leave_record. Overlapping {i} to {bdays_hdays_df.loc[f"{i.date()}", "weekday"]}.'
+                        break
 
-        leave_df = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff_name).leave_dataframe()
-        leave_table = dash_table.DataTable(
-            leave_df.to_dict('records'), 
-            [{"name": i, "id": i} for i in leave_df.columns], 
-            row_deletable=True,
-            style_table={'overflowX': 'auto','minWidth': '100%',},
-            style_cell={ 
-                        'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                        'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                        'whiteSpace': 'normal',
-                        'height': '35px',
-                        },
-            style_header={
-                        'backgroundColor': '#0074D9',
-                        'color': 'white'
-                        },
-            )
-        return [leave_table]
+                if _successful_record:
+                    end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
+                    db.db_session.add(db.Leaves(
+                        staff_name=staff_name, 
+                        type=leave_type, 
+                        start=start,
+                        end=end,  
+                        reserved=leave_reserved
+                        ))
+                    db.db_session.commit()    
+                    leave_msg = 'Successful leave_record'
+                    
+        leave_df = leave_table_generator.leave_dataframe()
+        if not leave_df.empty:
+            leave_table = dash_table.DataTable(
+                leave_df.to_dict('records'), 
+                [{"name": i, "id": i} for i in leave_df.columns], 
+                row_deletable=True,
+                style_table={'overflowX': 'auto','minWidth': '100%',},
+                style_cell={ 
+                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                            'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                            'whiteSpace': 'normal',
+                            'height': '35px',
+                            },
+                style_header={
+                            'backgroundColor': '#0074D9',
+                            'color': 'white'
+                            },
+                )
+        else:
+            leave_msg = 'Empty leave_record'
+            leave_table = None
+        return [leave_msg], [leave_table]
 
 
     # datepicker for check_table
@@ -631,7 +663,7 @@ def init_callbacks():
         check_datepicker.start_date = (datetime.now().date()  - pd.offsets.MonthBegin(1)).date()
         check_datepicker.end_date = datetime.now().date()
 
-        leave_start_datetime_picker.value = datetime.now()
+        leave_start_datetime_picker.value = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]

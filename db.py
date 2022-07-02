@@ -189,7 +189,7 @@ class season_table_generator:
                 agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
                 check_lst_1d.append(agg_lst[-1])
             check_lst_2d.append(check_lst_1d)
-            seasonal_required_hours += ((calendar.bdays_bool_df() * 9).sum()[0])
+            seasonal_required_hours += calendar.bdays_count().sum()*9
         #print(np.array(check_lst_2d).sum(axis=0))
         monthly_df = pd.DataFrame(np.array(check_lst_2d), columns=self.staff_name_lst)
         total_df = pd.DataFrame([np.array(check_lst_2d).sum(axis=0)], columns=self.staff_name_lst)
@@ -234,7 +234,7 @@ class all_table_generator:
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
             #print(df)
             
-            required_hours = (self.calendar.bdays_bool_df() * 9).sum()[0]
+            required_hours = self.calendar.bdays_count().sum()*9
 
             if agg_lst != []:
                 df = pd.concat([pd.DataFrame([agg_lst[-1], (agg_lst[-1]-required_hours)], columns=df.columns), df], ignore_index=True)
@@ -268,13 +268,21 @@ class table_generator:
                 if i.type == v['type']:
                     leave_type = k
                     leave_unit = v['unit']
-            leave_dict[f'{i.id}'] = [leave_type, i.start, i.reserved, leave_unit, i.end]
-        leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'reserved', 'unit', 'end'])[::-1].reset_index()
-        print(leave_df)
+            leave_dict[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
+        if leave_dict:
+            leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'end', 'reserved', 'unit'])[::-1].reset_index()
+            leave_df['start'] = leave_df['start'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+            leave_df['end'] = leave_df['end'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+            #datetime. strptime(date_time_str, '%d/%m/%y %H:%M:%S')
+            #df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
+            print(leave_df)
+        else:
+            leave_df = pd.DataFrame()
         return leave_df
 
     def check_dataframe(self):
         date_index = self.calendar.date_index.date
+        bdays_hdays_df = self.calendar.bdays_hdays()
         out_dict = {}
         for i in self.staff.checkout_time:
             out_dict[i.created_time.date()]=i.created_time
@@ -292,11 +300,11 @@ class table_generator:
         worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
         agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
 
-        df = pd.DataFrame(data={'date':self.calendar.date_index, 'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
+        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
         df.iloc[:] = df.iloc[::-1].values
 
-        required_hours = (self.calendar.bdays_bool_df() * 9).sum()[0]
+        required_hours = self.calendar.bdays_count().sum()*9
         
         #print(df, required_hours)
         return df, required_hours
