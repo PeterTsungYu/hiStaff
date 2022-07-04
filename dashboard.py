@@ -134,11 +134,10 @@ def init_callbacks():
                                 },
                             tooltip_data=[
                                 {
-                                    column: {'value': f'Edit with following format: "HH:MM:SS"', 'type': 'markdown'}
+                                    column: {'value': f'Edit with following format: "HH:MM"', 'type': 'markdown'}
                                     if column in ['checkin', 'checkout']
                                     else f"{value} [hr]"
                                     for column, value in row.items()
-                                    
                                 } 
                                 for row in check_df.to_dict('records')[:]
                             ],
@@ -281,11 +280,11 @@ def init_callbacks():
         print(pathname)
         #print(int(datetime.strptime(month, "%b").month))
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
-        check_df = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
-        print(check_df)
+        season_check_df = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
+        print(season_check_df)
 
         return [
-            check_table(check_df), 
+            check_table(season_check_df), 
         ]
 
     # month and year picker for check_table
@@ -308,12 +307,12 @@ def init_callbacks():
 
         if 'date_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
-            check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
+            all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
         else:
             pass
 
         return [
-            check_table(check_df), 
+            check_table(all_check_df), 
         ]
 
 
@@ -484,22 +483,23 @@ def init_callbacks():
 
     # only the last 30 row could be editable
     # match certin string format
-    r = re.compile('\d{2}:\d{2}:\d{2}')
+    r = re.compile('\d{2}:\d{2}')
     @callback(
         Output('check_datatable', 'data'),
-        Input('check_datatable', 'data_timestamp'),
-        [State('check_datatable', 'data'),
-        State('previous_check_store', 'data'),]
+        [Input('check_datatable', 'data_previous'),],
+        [State('check_datatable', 'data'),]
         )
-    def update_lastcells(timestamp, data, data_previous):
-        print(data)
-        data_previous = pd.read_json(data_previous, orient='split').to_dict(orient='records')
-        if (data != None) and (data_previous) != None:
+    def update_lastcells(data_previous, data):
+        #print(data)
+        #print(data_previous)
+        if data_previous is None:
+            return data
+        else:
             for i in range(len(data)):
                 for col in ['checkin', 'checkout']:
                     if data[i][col] is not None:
                         if (r.match(data[i][col]) is None):
-                            data[i][col] = 'HH:MM:SS'
+                            data[i][col] = 'HH:MM'
                     if i >= 30:
                         #print(i, data[i][col], data_previous[i][col])
                         data[i][col] = data_previous[i][col]
@@ -520,110 +520,110 @@ def init_callbacks():
     [
         State('url', 'search'),
         State('url', 'pathname'),
-        State('check_datepicker', 'start_date'),
-        State('check_datepicker', 'end_date'),
-        State('check_button', 'submit_n_clicks_timestamp'),
         State('check_datatable', 'data'),
-        State('previous_check_store', 'data'),
+        State('check_datatable', 'data_previous'),
         ],
     prevent_initial_call=False,
     )
-    def update_check_data(submit_n_clicks, search, pathname, start_date, end_date, submit_n_clicks_timestamp, data, data_previous):
+    def update_check_data(submit_n_clicks, search, pathname, data, data_previous):
         #print(data) # list of dictionaries of str or None
         #print(json.loads(data_previous))
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
-        if (data != None) and (data_previous) != None:
-            df = pd.DataFrame(data=data)
-            df_previous = pd.read_json(data_previous, orient='split')
-            print(df)
-            print(df_previous)
-            mask = df.ne(df_previous)
-            df_diff = df[mask]
-            print(df_diff)
-            changes = {}
-            count = 0
-            for index, row in df_diff.iterrows():
-                for col, value in row.items():
-                    if col not in ('checkin', 'checkout'):
-                        continue
-                    if str(value).strip() not in ('None', 'nan'):
-                        date = df['date'][index].split(',')[0]
-                        if value != '':
-                            print(value, date)
-                            current_time = value
-                            current_datetime = date + '/' + current_time
-                        else:
-                            current_datetime = None
-                        
-                        if 'checkin' in col:
-                            pre_time = df_previous['checkin'][index]
-                        elif 'checkout' in col:
-                            pre_time = df_previous['checkout'][index]
-                        
-                        if (pre_time != None) and (pre_time != ''):
-                            pre_datetime = date + '/' + pre_time
-                        else:
-                            pre_datetime = None
-                        # include the other table ... to compare the other for time diff
-                        changes[f'{count}'] = {'col':col, 'previous':pre_datetime, 'current':current_datetime}
-                        count += 1
+        if not submit_n_clicks:
+            raise PreventUpdate
+        else:
+            if (data != None) and (data_previous) != None:
+                df = pd.DataFrame(data=data)
+                df_previous = pd.read_json(data_previous, orient='split')
+                print(df)
+                print(df_previous)
+                mask = df.ne(df_previous)
+                df_diff = df[mask]
+                print(df_diff)
+                changes = {}
+                count = 0
+                for index, row in df_diff.iterrows():
+                    for col, value in row.items():
+                        if col not in ('checkin', 'checkout'):
+                            continue
+                        if str(value).strip() not in ('None', 'nan'):
+                            date = df['date'][index].split(',')[0]
+                            if value != '':
+                                print(value, date)
+                                current_time = value
+                                current_datetime = date + '/' + current_time
+                            else:
+                                current_datetime = None
+                            
+                            if 'checkin' in col:
+                                pre_time = df_previous['checkin'][index]
+                            elif 'checkout' in col:
+                                pre_time = df_previous['checkout'][index]
+                            
+                            if (pre_time != None) and (pre_time != ''):
+                                print(date)
+                                print(pre_time)
+                                pre_datetime = date + '/' + pre_time
+                            else:
+                                pre_datetime = None
+                            # include the other table ... to compare the other for time diff
+                            changes[f'{count}'] = {'col':col, 'previous':pre_datetime, 'current':current_datetime}
+                            count += 1
 
-            for key, value in changes.items():
-                print(key, value)
-                col = f"{value['col']}"
-                if 'checkin' in col:
-                    table = db.CheckIn
-                elif 'checkout' in col:
-                    table = db.CheckOut
-                pre = value['previous']
-                cur = value['current']
-                if (cur == None) and (pre == None):
-                    continue
-                elif cur == None:
-                    try:
-                        pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
-                    except Exception as e:
-                        return [
-                            False,
-                            f"{pathname}{search}",
-                            str(e), 
-                            ]
-                    #delete the row
-                    db.db_session.query(table).\
-                    filter(table.staff_name == staff_name, table.created_time == pre).\
-                    delete()
-                elif pre == None:
-                    try:
-                        cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
-                    except Exception as e:
-                        return [
-                            False,
-                            f"{pathname}{search}",
-                            str(e), 
-                            ]
-                    # insert a row
-                    db.db_session.add(table(staff_name=staff_name, created_time=cur))
-                else:
-                    try:
-                        pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
-                        cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
-                        print(pre, cur)
-                    except Exception as e:
-                        return [
-                            False,
-                            f"{pathname}{search}",
-                            str(e), 
-                            ]
-                    # update the row
-                    db.db_session.query(table).\
-                    filter(table.staff_name == staff_name, table.created_time == pre).\
-                    update({"created_time": cur})
-        db.db_session.commit()
-        return [
-            True,
-            f"{pathname}{search}", #refresh the page
-            'Succeed',
-            ]
+                for key, value in changes.items():
+                    print(key, value)
+                    col = f"{value['col']}"
+                    if 'checkin' in col:
+                        table = db.CheckIn
+                    elif 'checkout' in col:
+                        table = db.CheckOut
+                    pre = value['previous']
+                    cur = value['current']
+                    if (cur == None) and (pre == None):
+                        continue
+                    elif cur == None:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
+                        except Exception as e:
+                            return [
+                                False,
+                                f"{pathname}{search}",
+                                str(e), 
+                                ]
+                        #delete the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        delete()
+                    elif pre == None:
+                        try:
+                            cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
+                        except Exception as e:
+                            return [
+                                False,
+                                f"{pathname}{search}",
+                                str(e), 
+                                ]
+                        # insert a row
+                        db.db_session.add(table(staff_name=staff_name, created_time=cur))
+                    else:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y/%H:%M:%S')
+                            cur = datetime.strptime(cur, '%m/%d/%Y/%H:%M:%S')
+                            print(pre, cur)
+                        except Exception as e:
+                            return [
+                                False,
+                                f"{pathname}{search}",
+                                str(e), 
+                                ]
+                        # update the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        update({"created_time": cur})
+            db.db_session.commit()
+            
+            #refresh the page
+            return [True, f"{pathname}{search}", 'Succeed',]
 
 
     # update index links

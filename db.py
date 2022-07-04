@@ -286,12 +286,12 @@ class table_generator:
         out_dict = {}
         for i in self.staff.checkout_time:
             out_dict[i.created_time.date()]=i.created_time
-        out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in date_index]
+        out_lst = [f"{out_dict[i].hour}:{out_dict[i].minute}" if i in out_dict.keys() else None for i in date_index]
 
         in_dict = {}
         for i in self.staff.checkin_time:
             in_dict[i.created_time.date()]=i.created_time
-        in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in date_index]
+        in_lst = [f"{in_dict[i].hour}:{in_dict[i].minute}" if i in in_dict.keys() else None for i in date_index]
         
         worktime_dict = {}
         for i in date_index:
@@ -301,8 +301,8 @@ class table_generator:
         agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
 
         df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
-        df['date'] = df['date'].dt.strftime("%m/%d/%Y, %A")
-        df.iloc[:] = df.iloc[::-1].values
+        df['date'] = df['date'].dt.strftime("%m/%d/%Y, %a")
+        df.iloc[:] = df.iloc[::-1].values # reverse rows
 
         required_hours = self.calendar.bdays_count().sum()*9
         
