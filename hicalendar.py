@@ -41,7 +41,7 @@ class hiCalendar(AbstractHolidayCalendar):
     def bdays_hdays(self):
         bdate_index = self.bdate()
         hdate_index = self.hdate()
-        weekday_name = lambda date: hdate_index[date] if date in hdate_index.index else ('weekend' if date.weekday()+1 in [6,7] else f'weekday_{date.weekday()+1}')
+        weekday_name = lambda date: hdate_index[date] if date in hdate_index.index else ('weekend' if date.weekday()+1 in [6,7] else date.strftime('%a'))
         return pd.DataFrame(data=[(weekday_name(i), True) if i in bdate_index else (weekday_name(i), False) for i in self.date_index] ,index=self.date_index, columns=['weekday', 'Working Day'])
         
         

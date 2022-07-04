@@ -301,7 +301,7 @@ class table_generator:
         agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
 
         df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
-        df['date'] = df['date'].dt.strftime("%m/%d/%Y, %a")
+        df['date'] = df['date'].dt.strftime("%m/%d/%Y")
         df.iloc[:] = df.iloc[::-1].values # reverse rows
 
         required_hours = self.calendar.bdays_count().sum()*9
