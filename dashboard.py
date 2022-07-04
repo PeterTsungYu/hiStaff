@@ -121,8 +121,8 @@ def init_callbacks():
                                     },
                                 {
                                     'if': {
-                                        'filter_query': '{date} > ' + f'{(datetime.now().date()-pd.offsets.DateOffset(days=2)).date().strftime("%m/%d/%Y")}',
-                                        'column_id': ['checkin', 'checkout']
+                                        'filter_query': '{weekday} != Mon && {weekday} != Tue && {weekday} != Wed && {weekday} != Thu && {weekday} != Fri',
+                                        'column_id': ['date', 'weekday']
                                         },
                                     'backgroundColor': '#7FDBFF',
                                     'color': 'white',
@@ -475,6 +475,81 @@ def init_callbacks():
         return [leave_msg], [leave_table]
 
 
+        # update the leave table         
+    @callback(
+    [
+        Output('leave_table', 'data'), 
+        ],
+    [
+        Input('leave_table', 'data'),
+        ],
+    [
+        State('url', 'search'),
+        State('leave_table', 'data_previous'),
+        ],
+    prevent_initial_call=True,
+    )
+    def update_leave_data(data, search, data_previous):
+        print(data)
+        print(data_previous)
+        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+        if data == data_previous:
+            raise PreventUpdate
+        else:
+            if (data != None) and (data_previous) != None:
+                for i in range(len(data)):
+                    if data[i]['index'] != data_previous[i]['index']:
+                        _del_index = int(data_previous[i]['index'])
+
+                db.db_session.query(db.Leaves).\
+                filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
+                delete()
+                db.db_session.commit()
+                '''
+                for key, value in changes.items():
+                    print(key, value)
+                    col = value['col']
+                    if 'checkin' in col:
+                        table = db.CheckIn
+                    elif 'checkout' in col:
+                        table = db.CheckOut
+                    pre = value['previous']
+                    cur = value['current']
+                    if (cur == None) and (pre == None):
+                        continue
+                    elif cur == None:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                        except Exception as e:
+                            return 
+                        #delete the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        delete()
+                    elif pre == None:
+                        try:
+                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                        except Exception as e:
+                            return 
+                        # insert a row
+                        db.db_session.add(table(staff_name=staff_name, created_time=cur))
+                    else:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                            print(pre, cur)
+                        except Exception as e:
+                            return 
+                        # update the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        update({"created_time": cur})
+            db.db_session.commit()
+            '''
+            #refresh the page
+            return [data]
+
+
     # datepicker for check_table
     @callback(
         [
@@ -549,7 +624,7 @@ def init_callbacks():
                         data[i]['checkout'] = data_previous[i]['checkout']
             return data
 
-    # update the table         
+    # update the check table         
     @callback(
     [
         Output('url', 'refresh'),
