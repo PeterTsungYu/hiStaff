@@ -248,6 +248,8 @@ class all_table_generator:
 
 class table_generator:
     def __init__(self, start, end, staff_name):
+        self.start = start
+        self.end = end
         self.calendar=hiCalendar(start, end)
         self.staff_name=staff_name
         self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
@@ -260,15 +262,14 @@ class table_generator:
         return df
     
     def leave_dataframe(self):
-        #date_index = self.calendar.date_index.date
-        #print(date_index)
         leave_dict = {}
         for i in self.staff.Leaves_time:
-            for k,v in leaves_type.items():
-                if i.type == v['type']:
-                    leave_type = k
-                    leave_unit = v['unit']
-            leave_dict[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
+            if self.start <= i.start.date() <= self.end: 
+                for k,v in leaves_type.items():
+                    if i.type == v['type']:
+                        leave_type = k
+                        leave_unit = v['unit']
+                leave_dict[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
         if leave_dict:
             leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'end', 'reserved', 'unit'])[::-1].reset_index()
             leave_df['start'] = leave_df['start'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")

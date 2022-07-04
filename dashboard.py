@@ -420,6 +420,7 @@ def init_callbacks():
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
         staff=db.db_session.query(db.Staffs).filter(db.Staffs.staff_name==staff_name).scalar()
         start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+        # Yearly leave 
         leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff_name)
 
         leave_msg = 'Ready to take a leave. Pls Fill in all of leave_type, leave_start, leave_end, leave_reserved.'
