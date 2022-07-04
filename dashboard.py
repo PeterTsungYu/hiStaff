@@ -305,6 +305,7 @@ def init_callbacks():
                             'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
+                            'fontSize':18, 'font-family':'sans-serif'
                             },
                 style_header={
                             'backgroundColor': '#0074D9',
@@ -345,6 +346,7 @@ def init_callbacks():
                             'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
+                            'fontSize':18, 'font-family':'sans-serif'
                             },
                 style_header={
                             'backgroundColor': '#0074D9',
@@ -466,13 +468,20 @@ def init_callbacks():
                 leave_df.to_dict('records'), 
                 [{"name": i, "id": i} for i in leave_df.columns], 
                 id='leave_table',
+                filter_action="native",
                 row_deletable=True,
+                page_action="native",
+                page_current= 0,
+                page_size= 10,
+                export_format='xlsx',
+                export_headers='display',
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                             'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
+                            'fontSize':18, 'font-family':'sans-serif'
                             },
                 style_header={
                             'backgroundColor': '#0074D9',
