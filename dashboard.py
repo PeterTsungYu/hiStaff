@@ -65,8 +65,6 @@ def init_callbacks():
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
     mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
     season_check_datatable_div = html.Div(id='season_check_datatable_div', style=table_style)
-    leave_datatable_div = html.Div(id='leave_datatable_div', style=table_style)
-    sum_string = html.Div(id='sum_string')
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
         children=html.Button('Click to edit the table entry',),
@@ -97,16 +95,9 @@ def init_callbacks():
                             style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                                'whiteSpace': 'normal',
-                                'height': '35px',
+                                'minWidth': '130px', 'maxWidth': '130px', 'width': '130px',
+                                'fontSize':18, 'font-family':'sans-serif'
                                 },
-                            style_cell_conditional=[    # align text columns to left. By default they are aligned to right
-                                {
-                                    'if': {'column_id': c},
-                                    'textAlign': 'left'
-                                } for c in ['date']
-                            ],
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
                                 'height': 30
@@ -148,7 +139,7 @@ def init_callbacks():
                             export_headers='display',
                         )
         return datatable
-    
+
     # leave form objs
     leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1")
     leave_card = dbc.Card([
@@ -195,7 +186,7 @@ def init_callbacks():
             dbc.Col(html.Div(), width='auto'),
             dbc.Col(
                 dbc.Card([
-                    dbc.CardHeader("Yearly Leave Form"),
+                    dbc.CardHeader("Yearly Leave Table"),
                     dbc.CardBody([
                         html.P(id='leave_msg'),
                         html.Div(id='total_leave_datatable_div', style=table_style)
@@ -231,17 +222,38 @@ def init_callbacks():
 
     check_layout = [html.Div([
         check_h1,
-        check_datepicker,
-        check_datatable_div,
-        sum_string,
-        change_string,
-        check_button,
-        html.Br(),
-        leave_datatable_div,
-        html.Br(),
-        check_link,
-        html.Br(),
-        home_link,
+        dbc.Row(
+            [
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        dbc.CardHeader("Datepicker Check Table"),
+                        dbc.CardBody([
+                            check_datepicker,
+                            check_datatable_div,
+                            change_string,
+                            check_button,
+                        ])
+                        ]), 
+                        width=10),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        dbc.CardBody([
+                            html.Div(id='sum_string'),
+                        ])
+                        ]), 
+                        width=10),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+        ),
         personal_data_store,
         previous_check_store,
         agg_check_store,
@@ -287,11 +299,10 @@ def init_callbacks():
                 season_check_df.to_dict('records'), 
                 [{"name": i, "id": i} for i in season_check_df.columns], 
                 id='season_table',
-                row_deletable=True,
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                            'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
                             },
@@ -328,7 +339,6 @@ def init_callbacks():
                 all_check_df.to_dict('records'), 
                 [{"name": i, "id": i} for i in all_check_df.columns], 
                 id='all_table',
-                row_deletable=True,
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
@@ -460,7 +470,7 @@ def init_callbacks():
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                            'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
                             },
@@ -505,47 +515,6 @@ def init_callbacks():
                 filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
                 delete()
                 db.db_session.commit()
-                '''
-                for key, value in changes.items():
-                    print(key, value)
-                    col = value['col']
-                    if 'checkin' in col:
-                        table = db.CheckIn
-                    elif 'checkout' in col:
-                        table = db.CheckOut
-                    pre = value['previous']
-                    cur = value['current']
-                    if (cur == None) and (pre == None):
-                        continue
-                    elif cur == None:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            return 
-                        #delete the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff_name, table.created_time == pre).\
-                        delete()
-                    elif pre == None:
-                        try:
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            return 
-                        # insert a row
-                        db.db_session.add(table(staff_name=staff_name, created_time=cur))
-                    else:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                            print(pre, cur)
-                        except Exception as e:
-                            return 
-                        # update the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff_name, table.created_time == pre).\
-                        update({"created_time": cur})
-            db.db_session.commit()
-            '''
             #refresh the page
             return [data]
 
