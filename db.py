@@ -89,6 +89,7 @@ class CheckIn(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
+    check_place = Column(String, default='office')
     
     def __repr__(self):
         return f'<CheckIn {self.id!r}>'
@@ -98,6 +99,7 @@ class CheckOut(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
+    check_place = Column(String, default='office')
     def __repr__(self):
         return f'<CheckOut {self.id!r}>'
 
@@ -115,26 +117,34 @@ class Leaves(Base):
         return f'<Leave {self.id!r}>'
 
 leaves_type = {
+        'Official_Leave':{'type':'OF', 'unit':2}, #[hr]
         'Personal_Leave':{'type':'PS', 'unit':2}, #[hr]
         'Sick_Leave':{'type':'SK', 'unit':4}, #[hr]
         'Business_Leave':{'type':'BN', 'unit':2}, #[hr]
-        'Deferred_Leave':{'type':'DF', 'unit':2}, #[hr]
+        'Deferred_Leave':{'type':'DF', 'unit':4}, #[hr]
         'Annual_Leave':{'type':'AA', 'unit':4}, #[hr]
+        'Funeral_Leave':{'type':'FN', 'unit':4}, #[hr]
+        'Menstruation_Leave':{'type':'MS', 'unit':8}, #[hr]
         'Marital_Leave':{'type':'MT', 'unit':8}, #[hr]
         'Maternity_Leave':{'type':'MN', 'unit':8}, #[hr]
+        'Paternity_Leave':{'type':'PT', 'unit':8}, #[hr]
     }
     
 class Staffs(Base):
     __tablename__ = 'staffs_table'
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, nullable=False)
-    Personal_Leave = Column(Float, default=0)
-    Sick_Leave = Column(Float, default=0)
-    Business_Leave = Column(Float, default=0)
+    Official_Leave = Column(Float, default=365)
+    Personal_Leave = Column(Float, default=14)
+    Sick_Leave = Column(Float, default=30)
+    Business_Leave = Column(Float, default=365)
     Deffered_Leave = Column(Float, default=0)
-    Annual_Leave = Column(Float, default=10.0)
-    Marital_Leave = Column(Float, default=7.0)
-    Maternity_Leave = Column(Float, default=7.0)
+    Annual_Leave = Column(Float, default=10)
+    Funeral_Leave = Column(Float, default=8)
+    Menstruation_Leave = Column(Float, default=12)
+    Marital_Leave = Column(Float, default=8)
+    Maternity_Leave = Column(Float, default=40)
+    Paternity_Leave = Column(Float, default=5)
     '''
     def __repr__(self):
         return f'<Staff {self.staff_name!r}>'
@@ -282,16 +292,20 @@ class table_generator:
         return leave_df
 
     def check_dataframe(self):
+        start = datetime.strptime(self.start, '%Y-%m-%d').date()
+        end = datetime.strptime(self.end, '%Y-%m-%d').date()
         date_index = self.calendar.date_index.date
         bdays_hdays_df = self.calendar.bdays_hdays()
         out_dict = {}
         for i in self.staff.checkout_time:
-            out_dict[i.created_time.date()]=i.created_time
+            if start <= i.created_time.date() <= end: 
+                out_dict[i.created_time.date()]=i.created_time
         out_lst = [f"{out_dict[i].hour}:{out_dict[i].minute}" if i in out_dict.keys() else None for i in date_index]
 
         in_dict = {}
         for i in self.staff.checkin_time:
-            in_dict[i.created_time.date()]=i.created_time
+            if start <= i.created_time.date() <= end: 
+                in_dict[i.created_time.date()]=i.created_time
         in_lst = [f"{in_dict[i].hour}:{in_dict[i].minute}" if i in in_dict.keys() else None for i in date_index]
         
         worktime_dict = {}
@@ -299,9 +313,34 @@ class table_generator:
             if (in_dict.get(i) != None) and (out_dict.get(i) != None):
                 worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
         worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
-        agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
+        #print(worktime_lst)
 
-        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
+        leave_dict = {}
+        for i in self.staff.Leaves_time:
+            if start <= i.start.date() <= end: 
+                for k,v in leaves_type.items():
+                    if i.type == v['type']:
+                        leave_type = k
+                        # unit within a day
+                        if leave_type not in ['Marital_Leave', 'Maternity_Leave']:
+                            leave_amount = v['unit'] * int(i.reserved)
+                            leave_dict[i.start.date()] = {'leave_time': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
+                        # unit across a day
+                        else:
+                            leave_amount = int(i.reserved)
+                            for i in pd.date_range(i.start.date(), i.end.date()):
+                                if start <= i <= end:
+                                    leave_dict[i] = {'leave_time': f'{leave_type}\n{i}', 'leave_amount': v['unit']}
+                        break
+        #print(leave_dict)
+        leave_time_lst = [leave_dict[i]['leave_time'] if i in leave_dict.keys() else None for i in date_index]
+        #print(leave_time_lst)
+        leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]
+        #print(leave_amount_lst)
+        agg_lst = [round(sum(worktime_lst[:i+1]) - sum(leave_amount_lst[:i+1]), 2) for i in range(len(worktime_lst))]
+        #print(agg_lst)
+
+        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'leave_time':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y")
         df.iloc[:] = df.iloc[::-1].values # reverse rows
 

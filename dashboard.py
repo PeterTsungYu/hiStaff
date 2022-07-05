@@ -95,7 +95,7 @@ def init_callbacks():
                             style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '130px', 'maxWidth': '130px', 'width': '130px',
+                                'minWidth': '150px', 'maxWidth': '150px', 'width': '150px',
                                 'fontSize':18, 'font-family':'sans-serif'
                                 },
                             style_data={                # overflow cells' content into multiple lines
@@ -395,7 +395,7 @@ def init_callbacks():
                 max = 5
                 if reserved_amount > max:
                     reserved_amount = max
-                leave_end = (leave_start + timedelta(days=_unit/8*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
+                leave_end = (leave_start.replace(day=leave_start.day+reserved_amount-1, hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
             return leave_unit_children, max, [leave_end]
 
 
@@ -520,6 +520,8 @@ def init_callbacks():
                 for i in range(len(data)):
                     if data[i]['index'] != data_previous[i]['index']:
                         _del_index = int(data_previous[i]['index'])
+                    else:
+                        _del_index = data_previous[-1]['index']
 
                 db.db_session.query(db.Leaves).\
                 filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
