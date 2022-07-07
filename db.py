@@ -3,7 +3,7 @@ from linebot.models import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, ForeignKey, inspect, UniqueConstraint, select
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import numpy as np
 import pandas as pd
 def strptime(time):
@@ -163,6 +163,7 @@ Staff_profile_name_lst = [i.staff_name for i in Staff_profile_lst]
 
 class season_table_generator:
     def __init__(self, staff_name, year, season):
+        self.season = season
         self.staff_name=staff_name
         if staff_name == 'all':
             self.staff_lst = db_session.query(Staffs)
@@ -170,18 +171,21 @@ class season_table_generator:
             self.staff_lst = [db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()]
         self.staff_name_lst = [staff.staff_name for staff in self.staff_lst]
         season_dict = {'Q1':[1,2,3], 'Q2':[4,5,6], 'Q3':[7,8,9], 'Q4':[10,11,12]}
-        self.season = season_dict[season]
+        self.month_lst = season_dict[season]
         self.calendar_lst=[
             hiCalendar(start = datetime(year, season_dict[season][0], 1), end = (datetime(year, season_dict[season][0], 1) + pd.offsets.MonthEnd(1)).date()),
             hiCalendar(start = datetime(year, season_dict[season][1], 1), end = (datetime(year, season_dict[season][1], 1) + pd.offsets.MonthEnd(1)).date()),
             hiCalendar(start = datetime(year, season_dict[season][2], 1), end = (datetime(year, season_dict[season][2], 1) + pd.offsets.MonthEnd(1)).date()),
         ]
     def check_dataframe(self):
-        seasonal_required_hours = 0
-        check_lst_2d = []
+        _season = 0
+        seasonal_lst = []
+        df_lst = []
         for calendar in self.calendar_lst:
+            start = calendar.start.date()
+            end = calendar.end
             date_index = calendar.date_index.date
-            check_lst_1d = []
+            momthly_lst = {}
             for staff in self.staff_lst:
                 out_dict = {}
                 for i in staff.checkout_time:
@@ -196,22 +200,56 @@ class season_table_generator:
                     if (in_dict.get(i) != None) and (out_dict.get(i) != None):
                         worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
                 worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
-                agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
-                check_lst_1d.append(agg_lst[-1])
-            check_lst_2d.append(check_lst_1d)
-            seasonal_required_hours += calendar.bdays_count().sum()*9
-        #print(np.array(check_lst_2d).sum(axis=0))
-        monthly_df = pd.DataFrame(np.array(check_lst_2d), columns=self.staff_name_lst)
-        total_df = pd.DataFrame([np.array(check_lst_2d).sum(axis=0)], columns=self.staff_name_lst)
-        diff_df = pd.DataFrame([np.array(check_lst_2d).sum(axis=0) - seasonal_required_hours], columns=self.staff_name_lst)
-        df = pd.concat([monthly_df, total_df, diff_df], axis=0, ignore_index=True)
-        #print(total_df)
-        #print(diff_df)
-        #print(df)
-        date_index = self.season + ['agg [hr]', 'diff [hr]']
-        df = pd.concat([pd.DataFrame(data={'index':date_index}), df], axis=1)
 
-        return df
+                leave_dict = {}
+                for i in staff.Leaves_time:
+                    if start <= i.start.date() <= end: 
+                        for k,v in leaves_type.items():
+                            if i.type == v['type']:
+                                leave_type = k
+                                # unit within a day
+                                if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
+                                    leave_amount = v['unit'] * int(i.reserved)
+                                    leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
+                                # unit across a day
+                                else:
+                                    leave_amount = int(i.reserved)
+                                    for u in pd.date_range(i.start.date(), i.end.date()):
+                                        if start <= u <= end:
+                                            if u.date() == i.start.date():
+                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                            else:
+                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
+                                break
+                #print(leave_dict)
+                leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]   
+                work_amount = round(sum(worktime_lst), 2)
+                leave_amount = round(sum(leave_amount_lst), 2)
+                required_amount = calendar.bdays_count().sum()*9
+                diff = (work_amount + leave_amount) - required_amount
+                momthly_lst[staff.staff_name] = (work_amount, leave_amount, required_amount, diff)
+            monthly_df = pd.DataFrame(data={i: momthly_lst[i] for i in self.staff_name_lst}, index=('work_amount[hr]', 'leave_amount[hr]', 'required_amount[hr]', 'diff[hr]')).rename_axis(f'month_{self.month_lst[_season]}').reset_index()
+            df_lst.append(monthly_df)
+            _season += 1
+            #print(monthly_df)
+            seasonal_lst.append(momthly_lst)
+
+        #print(df_lst)
+        #print(seasonal_lst)
+        _seasonal_dict_temp = {} 
+        for i in seasonal_lst:
+            for k,v in i.items():
+                if not _seasonal_dict_temp.get(k):
+                    _seasonal_dict_temp[k] = []    
+                _seasonal_dict_temp[k].append(v)
+        _seasonal_dict = {}
+        for k,v in _seasonal_dict_temp.items():
+            _seasonal_dict[k] = np.array(v).sum(axis=0)
+        seasonal_df = pd.DataFrame(data=_seasonal_dict, index=('Total_work_amount[hr]', 'Total_leave_amount[hr]', 'Total_required_amount[hr]', 'Total_diff[hr]')).rename_axis(f'Seasonal Summary').reset_index()
+        #print(seasonal_df)
+        df_lst.append(seasonal_df)
+
+        return df_lst
 
 
 class all_table_generator:
@@ -322,25 +360,28 @@ class table_generator:
                     if i.type == v['type']:
                         leave_type = k
                         # unit within a day
-                        if leave_type not in ['Marital_Leave', 'Maternity_Leave']:
+                        if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
                             leave_amount = v['unit'] * int(i.reserved)
-                            leave_dict[i.start.date()] = {'leave_time': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
+                            leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
                         # unit across a day
                         else:
                             leave_amount = int(i.reserved)
-                            for i in pd.date_range(i.start.date(), i.end.date()):
-                                if start <= i <= end:
-                                    leave_dict[i] = {'leave_time': f'{leave_type}\n{i}', 'leave_amount': v['unit']}
+                            for u in pd.date_range(i.start.date(), i.end.date()):
+                                if start <= u <= end:
+                                    if u.date() == i.start.date():
+                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                    else:
+                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
                         break
-        #print(leave_dict)
-        leave_time_lst = [leave_dict[i]['leave_time'] if i in leave_dict.keys() else None for i in date_index]
+        print(leave_dict)
+        leave_time_lst = [leave_dict[i]['leave_start'] if i in leave_dict.keys() else None for i in date_index]
         #print(leave_time_lst)
         leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]
         #print(leave_amount_lst)
-        agg_lst = [round(sum(worktime_lst[:i+1]) - sum(leave_amount_lst[:i+1]), 2) for i in range(len(worktime_lst))]
+        agg_lst = [round(sum(worktime_lst[:i+1]) + sum(leave_amount_lst[:i+1]), 2) for i in range(len(worktime_lst))]
         #print(agg_lst)
 
-        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'leave_time':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
+        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'leave_start':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y")
         df.iloc[:] = df.iloc[::-1].values # reverse rows
 

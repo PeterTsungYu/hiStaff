@@ -64,7 +64,6 @@ def init_callbacks():
     )
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
     mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
-    season_check_datatable_div = html.Div(id='season_check_datatable_div', style=table_style)
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
         children=html.Button('Click to edit the table entry',),
@@ -192,7 +191,7 @@ def init_callbacks():
                         html.Div(id='total_leave_datatable_div', style=table_style)
                     ])
                     ]), 
-                    width=10),
+                    width=11),
             dbc.Col(html.Div(), width='auto'),
         ],
         justify="center"
@@ -235,7 +234,7 @@ def init_callbacks():
                             check_button,
                         ])
                         ]), 
-                        width=10),
+                        width=11),
                 dbc.Col(html.Div(), width='auto'),
             ],
             justify="center"
@@ -268,15 +267,39 @@ def init_callbacks():
 
     season_check_layout= [html.Div([
         check_h1,
-        html.Div([year_dropdown, season_dropdown], style={"width": "25%"}),
-        season_check_datatable_div,
+        dbc.Row(
+            [
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        dbc.CardHeader("Seasonal Check Table"),
+                        dbc.CardBody([
+                            html.Div([year_dropdown, season_dropdown], style={"width": "25%"}),
+                            html.Br(),
+                            html.Div(id='season_1st_datatable_div', style=table_style),
+                            html.Br(),
+                            html.Div(id='season_2nd_datatable_div', style=table_style),
+                            html.Br(),
+                            html.Div(id='season_3rd_datatable_div', style=table_style),
+                            html.Br(),
+                            html.Div(id='season_total_datatable_div', style=table_style),
+                        ])
+                        ]), 
+                        width=11),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+        ),
     ])]
 
 
     # year and quarter picker for check_table
     @callback(
         [
-            Output('season_check_datatable_div', 'children'),
+            Output('season_1st_datatable_div', 'children'),
+            Output('season_2nd_datatable_div', 'children'),
+            Output('season_3rd_datatable_div', 'children'),
+            Output('season_total_datatable_div', 'children'),
             ],
         [
             Input('year_dropdown', 'value'),
@@ -289,31 +312,33 @@ def init_callbacks():
         )
     def season_picker_check_table(year, season, search, pathname):
         staff = dict(parse_qsl(unquote(search))).get('?staff')
-        print(staff)
-        print(pathname)
-        #print(int(datetime.strptime(month, "%b").month))
-        #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
-        season_check_df = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
-        print(season_check_df)
-        season_table = dash_table.DataTable(
-                season_check_df.to_dict('records'), 
-                [{"name": i, "id": i} for i in season_check_df.columns], 
-                id='season_table',
-                style_table={'overflowX': 'auto','minWidth': '100%',},
-                style_cell={ 
-                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
-                            'whiteSpace': 'normal',
-                            'height': '35px',
-                            'fontSize':18, 'font-family':'sans-serif'
-                            },
-                style_header={
-                            'backgroundColor': '#0074D9',
-                            'color': 'white'
-                            },
-                )
-
-        return [season_table]
+        #print(staff)
+        #print(pathname)
+        if season == None:
+            raise PreventUpdate
+        else:
+            df_lst = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
+            table_lst = []
+            for df in df_lst:
+                table = dash_table.DataTable(
+                    df.to_dict('records'), 
+                    [{"name": i, "id": i} for i in df.columns], 
+                    id='season_table',
+                    style_table={'overflowX': 'auto','minWidth': '100%',},
+                    style_cell={ 
+                                'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                                'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
+                                'whiteSpace': 'normal',
+                                'height': '35px',
+                                'fontSize':18, 'font-family':'sans-serif'
+                                },
+                    style_header={
+                                'backgroundColor': '#0074D9',
+                                'color': 'white'
+                                },
+                    )
+                table_lst.append(table)
+            return table_lst
 
     # month and year picker for check_table
     @callback(
@@ -510,8 +535,8 @@ def init_callbacks():
     prevent_initial_call=True,
     )
     def update_leave_data(data, search, data_previous):
-        print(data)
-        print(data_previous)
+        #print(data)
+        #print(data_previous)
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
         if data == data_previous:
             raise PreventUpdate
@@ -536,7 +561,7 @@ def init_callbacks():
         [
             Output('check_datatable_div', 'children'),
             Output('previous_check_store', 'data'),
-            Output('agg_check_store', 'data'),
+            #Output('agg_check_store', 'data'),
             Output('sum_string', 'children'),
             ],
         [
@@ -546,12 +571,13 @@ def init_callbacks():
             ],
         )
     def datepicker_check_table(start_date, end_date, search):
-        print(f'{search} from datepicker_check_table')
+        #print(f'{search} from datepicker_check_table')
         staff = dict(parse_qsl(unquote(search))).get('?staff')
-        print(start_date)
-        print(end_date)
+        #print(start_date)
+        #print(end_date)
         check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
-        agg_check = check_df['aggregation[hr]'].iloc[0]
+        workhour = sum(check_df['worktime[hr]'].iloc[:])
+        leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
 
         # leave
         #leave_df = db.table_generator(start_date, end_date, staff).leave_dataframe()
@@ -559,10 +585,10 @@ def init_callbacks():
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
-            agg_check,
-            [html.Div(f"This month till now, u've worked for {agg_check} [hr]."), 
-            html.Div(f"Required hours: {required_hours} [hr]."), 
-            html.Div(f"Working Hour Difference: {agg_check - required_hours} [hr]"),],
+            [html.Div(f"Working hours: {workhour} [hr]"),
+            html.Div(f"Leaving hours {leavehour} [hr]"), 
+            html.Div(f"Required hours: {required_hours} [hr]"), 
+            html.Div(f"Difference: {round(leavehour + workhour - required_hours,2)} [hr]"),],
         ]
 
 
@@ -575,8 +601,8 @@ def init_callbacks():
         [State('check_datatable', 'data_previous'),]
         )
     def update_lastcells(data, data_previous):
-        print(data)
-        print(data_previous)
+        #print(data)
+        #print(data_previous)
         if data_previous is None:
             return data
         else:
@@ -642,7 +668,7 @@ def init_callbacks():
                 print(changes)
 
                 for key, value in changes.items():
-                    print(key, value)
+                    #print(key, value)
                     col = value['col']
                     if 'checkin' in col:
                         table = db.CheckIn
@@ -672,7 +698,7 @@ def init_callbacks():
                         try:
                             pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
                             cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                            print(pre, cur)
+                            #print(pre, cur)
                         except Exception as e:
                             return [False, f"{pathname}{search}", str(e),]
                         # update the row
@@ -729,20 +755,20 @@ def init_callbacks():
         personal_data_store.data = {'staff':staff}
         config.logging.debug([check_type, staff])
 
-        if 'date_check' in check_type:
+        if 'date_check?' in check_type:
             other_type = '/season_check'
-            check_link.children = staff + other_type
-            check_link.href = url_prefix + other_type + search
+            #check_link.children = staff + other_type
+            #check_link.href = url_prefix + other_type + search
         elif '/season_check' in check_type:
             other_type = '/date_check'
-            check_link.children = staff + other_type
-            check_link.href = url_prefix + other_type + search
+            #check_link.children = staff + other_type
+            #check_link.href = url_prefix + other_type + search
         elif 'leave_form' in check_type:
             pass
         
-        check_h1.children = staff + check_type
-        home_link.children = staff + '/Sweet Home'
-        home_link.href = url_prefix + search
+        check_h1.children = str(staff) + check_type
+        #home_link.children = staff + '/Sweet Home'
+        #home_link.href = url_prefix + search
 
         if check_type == '/date_check':
             return check_layout
