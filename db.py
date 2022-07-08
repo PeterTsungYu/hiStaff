@@ -161,6 +161,14 @@ Staff_profile_lst = [
     ]
 Staff_profile_name_lst = [i.staff_name for i in Staff_profile_lst]
 
+class staffs_datatable_generator:
+    def __init__(self, staff_name):
+        self.staff_name=staff_name
+        self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
+
+    def staffs_datatable(self):
+        df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['Type', 'Unit', 'Quota'])
+        return df_quota
 class season_table_generator:
     def __init__(self, staff_name, year, season):
         self.season = season
@@ -543,4 +551,5 @@ def reply_dash_msg():
 
 if __name__ == "__main__":
     #season_table_generator(year=2022, season='Q1').check_dataframe()
-    table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
+    #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
+    staffs_datatable_generator(staff_name='謝宗佑').staffs_datatable()
