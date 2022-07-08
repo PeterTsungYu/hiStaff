@@ -257,40 +257,63 @@ class all_table_generator:
         self.calendar=hiCalendar(start = datetime(year, month, 1), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
     def check_dataframe(self):
-        check_lst = []
+        all_check_lst = []
+        start = self.calendar.start.date()
+        end = self.calendar.end
         date_index = self.calendar.date_index.date
         for staff in self.staff_lst:
             out_dict = {}
             for i in staff.checkout_time:
                 out_dict[i.created_time.date()]=i.created_time
-            out_lst = [out_dict[i].time() if i in out_dict.keys() else None for i in date_index]
+            out_lst = [out_dict[i].time() if i in out_dict.keys() else '' for i in date_index]
 
             in_dict = {}
             for i in staff.checkin_time:
                 in_dict[i.created_time.date()]=i.created_time
-            in_lst = [in_dict[i].time() if i in in_dict.keys() else None for i in date_index]
+            in_lst = [in_dict[i].time() if i in in_dict.keys() else '' for i in date_index]
             
             worktime_dict = {}
             for i in date_index:
                 if (in_dict.get(i) != None) and (out_dict.get(i) != None):
                     worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
             worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
-            agg_lst = [round(sum(worktime_lst[:i+1]),2) for i in range(len(worktime_lst))]
-            #print(agg_lst)
+            
+            leave_dict = {}
+            for i in staff.Leaves_time:
+                if start <= i.start.date() <= end: 
+                    for k,v in leaves_type.items():
+                        if i.type == v['type']:
+                            leave_type = k
+                            # unit within a day
+                            if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
+                                leave_amount = v['unit'] * int(i.reserved)
+                                leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start.time()}', 'leave_amount': leave_amount}
+                            # unit across a day
+                            else:
+                                leave_amount = int(i.reserved)
+                                for u in pd.date_range(i.start.date(), i.end.date()):
+                                    if start <= u <= end:
+                                        if u.date() == i.start.date():
+                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start.time()}', 'leave_amount': v['unit']}
+                                        else:
+                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
+                            break
+            #print(leave_dict)
+            leave_time_lst = [f"{leave_dict[i]['leave_start']} for {leave_dict[i]['leave_amount']}[hr]" if i in leave_dict.keys() else '' for i in date_index]
+            leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]   
+            work_amount = round(sum(worktime_lst), 2)
+            leave_amount = round(sum(leave_amount_lst), 2)
+            required_amount = self.calendar.bdays_count().sum()*9
+            diff = (work_amount + leave_amount) - required_amount
 
-            in_out_lst = [f'{in_lst[i]} {out_lst[i]}'  for i in range(len(date_index))]
+            in_out_lst = [f'{in_lst[i]} {out_lst[i]}\n{leave_time_lst[i]}' for i in range(len(date_index))]
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
             #print(df)
-            
-            required_hours = self.calendar.bdays_count().sum()*9
 
-            if agg_lst != []:
-                df = pd.concat([pd.DataFrame([agg_lst[-1], (agg_lst[-1]-required_hours)], columns=df.columns), df], ignore_index=True)
-            else:
-                df = pd.concat([pd.DataFrame([0, 0], columns=df.columns), df], ignore_index=True)
-            check_lst.append(df)
-        date_index = ['aggregation[hr]', 'diff[hr]'] + [str(i) for i in date_index]
-        df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + check_lst, axis=1)
+            df = pd.concat([pd.DataFrame([work_amount, leave_amount, required_amount, diff], columns=df.columns), df], ignore_index=True)
+            all_check_lst.append(df)
+        date_index = ['work_amount[hr]', 'leave_amount[hr]', 'required_amount[hr]', 'diff[hr]'] + [str(i) for i in date_index]
+        df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + all_check_lst, axis=1)
         
         return df_all
 

@@ -63,7 +63,6 @@ def init_callbacks():
                         end_date=datetime.now().date()
     )
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
-    mycheck_datatable_div = html.Div(id='mycheck_datatable_div', style=table_style)
     change_string = html.Div(id='change_string')
     check_button = dcc.ConfirmDialogProvider(
         children=html.Button('Click to edit the table entry',),
@@ -94,8 +93,8 @@ def init_callbacks():
                             style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '150px', 'maxWidth': '150px', 'width': '150px',
-                                'fontSize':18, 'font-family':'sans-serif'
+                                'minWidth': '140px', 'maxWidth': '220px', 'width': '200px',
+                                'fontSize':26, 'font-family':'sans-serif'
                                 },
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
@@ -261,8 +260,23 @@ def init_callbacks():
 
     my_check_layout= [html.Div([
         check_h1,
-        html.Div([year_dropdown, month_dropdown], style={"width": "25%"}),
-        mycheck_datatable_div,
+        dbc.Row(
+            [
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        dbc.CardHeader("Monthly All Check Table"),
+                        dbc.CardBody([
+                            html.Div([year_dropdown, month_dropdown], style={"width": "25%"}),
+                            html.Br(),
+                            html.Div(id='mycheck_datatable_div', style=table_style)
+                        ])
+                        ]), 
+                        width=11),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+        ),
     ])]
 
     season_check_layout= [html.Div([
@@ -327,10 +341,10 @@ def init_callbacks():
                     style_table={'overflowX': 'auto','minWidth': '100%',},
                     style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
+                                'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
                                 'whiteSpace': 'normal',
                                 'height': '35px',
-                                'fontSize':18, 'font-family':'sans-serif'
+                                'fontSize':26, 'font-family':'sans-serif'
                                 },
                     style_header={
                                 'backgroundColor': '#0074D9',
@@ -357,7 +371,6 @@ def init_callbacks():
     def mypicker_check_table(year, month, search, pathname):
         staff = dict(parse_qsl(unquote(search))).get('?staff')
         #print(int(datetime.strptime(month, "%b").month))
-
         if 'date_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
@@ -365,21 +378,23 @@ def init_callbacks():
                 all_check_df.to_dict('records'), 
                 [{"name": i, "id": i} for i in all_check_df.columns], 
                 id='all_table',
+                filter_action="native",
+                page_action="native",
+                page_current= 0,
+                page_size= 10,
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                             'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
-                            'fontSize':18, 'font-family':'sans-serif'
+                            'fontSize':26, 'font-family':'sans-serif'
                             },
                 style_header={
                             'backgroundColor': '#0074D9',
                             'color': 'white'
                             },
                 )
-        else:
-            pass
 
         return [all_table]
 
@@ -504,10 +519,10 @@ def init_callbacks():
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '80px', 'maxWidth': '180px', 'width': '180px',
+                            'minWidth': '130px', 'maxWidth': '200px', 'width': '180px',
                             'whiteSpace': 'normal',
                             'height': '35px',
-                            'fontSize':18, 'font-family':'sans-serif'
+                            'fontSize':26, 'font-family':'sans-serif'
                             },
                 style_header={
                             'backgroundColor': '#0074D9',
