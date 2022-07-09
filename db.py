@@ -30,6 +30,7 @@ engine = create_engine(config.db_path, convert_unicode=True)
 #print(engine)
 
 db_session = scoped_session(sessionmaker(autocommit=False, autoflush=True, bind=engine))
+print(db_session)
 # When True, all query operations will issue a Session.flush() call to this Session before proceeding
 # It’s typical that autoflush is used in conjunction with autocommit=False
 # The Session object features autobegin the tx state, so that normally it is not necessary to call the Session.begin() method explicitly.
@@ -138,7 +139,7 @@ class Staffs(Base):
     Personal_Leave = Column(Float, default=14)
     Sick_Leave = Column(Float, default=30)
     Business_Leave = Column(Float, default=365)
-    Deffered_Leave = Column(Float, default=0)
+    Deferred_Leave = Column(Float, default=0)
     Annual_Leave = Column(Float, default=10)
     Funeral_Leave = Column(Float, default=8)
     Menstruation_Leave = Column(Float, default=12)
@@ -266,6 +267,7 @@ class all_table_generator:
     def __init__(self, year, month):
         self.calendar=hiCalendar(start = datetime(year, month, 1), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
+    
     def check_dataframe(self):
         all_check_lst = []
         start = self.calendar.start.date()
@@ -326,6 +328,30 @@ class all_table_generator:
         df_all = pd.concat([pd.DataFrame(data={'date':date_index})] + all_check_lst, axis=1)
         
         return df_all
+
+    def update_deferred_leave(self):
+        print(db_session)
+        try:
+            month_all_df = self.check_dataframe()
+            month_all_dict = month_all_df[month_all_df['date']=='diff[hr]'].to_dict('records')[0]
+            for staff in self.staff_lst:
+                #print(month_all_dict)
+                deferred_delta = month_all_dict.get(staff.staff_name)
+                # update staff.Deferred_Leave
+                cur_quota = db_session.query(Staffs).filter(Staffs.staff_name == staff.staff_name).scalar().__dict__.get('Deferred_Leave')
+                #print(cur_quota)
+                updated_quota = cur_quota + deferred_delta
+                #print(updated_quota)
+                db_session.query(Staffs).\
+                filter(Staffs.staff_name == staff.staff_name).\
+                update({"Deferred_Leave": updated_quota})
+                db_session.commit()
+            return 'successful update_deferred_leave'
+        except BaseException as e:
+            return str(e)
+        finally:
+            db_session.close()
+
 
 class table_generator:
     def __init__(self, start, end, staff_name):
@@ -555,3 +581,5 @@ if __name__ == "__main__":
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
     staffs_datatable_generator(staff_name='謝宗佑').staffs_datatable()
+    df = all_table_generator(year=2022, month=7).check_dataframe()
+    print(df[df['date']=='diff[hr]'].to_dict('records'))

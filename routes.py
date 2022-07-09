@@ -8,6 +8,8 @@ from linebot.exceptions import (
 )
 from linebot.models import *
 from urllib.parse import quote, parse_qsl, parse_qs
+from pytz import timezone
+from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 def strptime(time) -> datetime:   
     if 't' in time:
@@ -31,6 +33,24 @@ import db
 
 checkin_img_url = "https://img.onl/f41SeX"
 checkout_img_url = "https://img.onl/BMdSLf"
+
+##======================schedulers==================================
+twtz = timezone('Asia/Taipei')
+sched = BackgroundScheduler(timezone=twtz)
+sched.start()
+
+# update deferred leave every staff every first day of month 
+@sched.scheduled_job('cron', id='sched_update_deferred_leave', day=1)
+def sched_update_deferred_leave():
+    if  datetime.now().month == 1:
+        year = datetime.now().year - 1
+        last_month = 12
+    else:
+        year = datetime.now().year
+        last_month = datetime.now().month - 1
+    sched_msg = db.all_table_generator(year=year, month=last_month).update_deferred_leave()
+    print(sched_msg)
+    print(db.db_session)
 
 ##======================routes==================================
 @app.before_request

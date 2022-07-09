@@ -562,7 +562,7 @@ def init_callbacks():
                             _unit = v['unit']/8
                             _type = k
                             break
-                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff_name).scalar().__dict__[_type]
+                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff_name).scalar().__dict__.get(_type)
                     print(cur_quota)
                     updated_quota = cur_quota - leave_reserved*_unit
                     print(updated_quota)
