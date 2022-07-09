@@ -167,8 +167,10 @@ class staffs_datatable_generator:
         self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
 
     def staffs_datatable(self):
-        df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['Type', 'Unit', 'Quota'])
+        df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['Type', 'Unit[hr]', 'Quota[day]'])
         return df_quota
+
+
 class season_table_generator:
     def __init__(self, staff_name, year, season):
         self.season = season

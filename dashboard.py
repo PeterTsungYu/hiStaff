@@ -144,12 +144,31 @@ def init_callbacks():
                     dbc.CardHeader("Leave Form"),
                     dbc.CardBody(
                         [
-                            html.H5("Leave Type", className="card-title"),
-                            html.P(id='leave_unit'),
-                            dcc.RadioItems(
-                                id="leave_type_radio",
-                                options={v['type']:k for (k,v) in db.leaves_type.items()},
-                                style={'width':'25%', 'font-size': 20}
+                            dbc.CardGroup(
+                                [
+                                    dbc.Card(
+                                        dbc.CardBody(
+                                            [
+                                                html.H5("Leave Type", className="card-title"),
+                                                html.P(id='leave_unit'),
+                                                dcc.RadioItems(
+                                                    id="leave_type_radio",
+                                                    options={v['type']:k for (k,v) in db.leaves_type.items()},
+                                                    style={'width':'70%', 'font-size': 26}
+                                                ),
+                                            ]
+                                        ),
+                                        className="mb-3",
+                                    ),
+                                    dbc.Card(
+                                        dbc.CardBody(
+                                            [
+                                                html.Div(id='leave_quota_datatable_div', style=table_style)
+                                            ]
+                                        ),
+                                        className="mb-3",
+                                    ),
+                                ],
                             ),
                             html.Br(),
                             html.H5("Leave Start", className="card-title"),
@@ -174,7 +193,7 @@ def init_callbacks():
     leave_cards = dbc.Row(
         [
             dbc.Col(html.Div(), width='auto'),
-            dbc.Col(leave_card, width=10),
+            dbc.Col(leave_card, width=11),
             dbc.Col(html.Div(), width='auto'),
         ],
         justify="center"
@@ -399,6 +418,41 @@ def init_callbacks():
         return [all_table]
 
 
+    # leave_quota init
+    @callback(
+        Output('leave_quota_datatable_div', 'children'),
+        [
+            Input('leave_type_radio', 'value'),
+            Input('leave_table', 'data'),
+            ],
+        [
+            State('url', 'search'),
+            State('url', 'pathname'),
+            ]
+        )
+    def leave_quota_table(leave_type, leave_table, search, pathname):
+        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        df_leave_quota = db.staffs_datatable_generator(staff).staffs_datatable()
+        leave_quota_table = dash_table.DataTable(
+            df_leave_quota.to_dict('records'), 
+            [{"name": i, "id": i} for i in df_leave_quota.columns], 
+            id='leave_quota_table',
+            style_table={'overflowX': 'auto','minWidth': '100%',},
+            style_cell={ 
+                        'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                        'minWidth': '80px', 'maxWidth': '180px', 'width': '120px',
+                        'whiteSpace': 'normal',
+                        'height': '35px',
+                        'fontSize':22, 'font-family':'sans-serif'
+                        },
+            style_header={
+                        'backgroundColor': '#0074D9',
+                        'color': 'white'
+                        },
+            )
+        return leave_quota_table
+
+
     @callback(
     [   
         Output('leave_unit', 'children'),
@@ -493,6 +547,7 @@ def init_callbacks():
 
                 if _successful_record:
                     end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
+                    # add to leaves table
                     db.db_session.add(db.Leaves(
                         staff_name=staff_name, 
                         type=leave_type, 
@@ -500,8 +555,23 @@ def init_callbacks():
                         end=end,  
                         reserved=leave_reserved
                         ))
-                    db.db_session.commit()    
+                    
+                    # update staff quota
+                    for k,v in db.leaves_type.items():
+                        if leave_type == v['type']:
+                            _unit = v['unit']/8
+                            _type = k
+                            break
+                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff_name).scalar().__dict__[_type]
+                    print(cur_quota)
+                    updated_quota = cur_quota - leave_reserved*_unit
+                    print(updated_quota)
+                    db.db_session.query(db.Staffs).\
+                    filter(db.Staffs.staff_name == staff_name).\
+                    update({f"{_type}": updated_quota})
+
                     leave_msg = 'Successful leave_record'
+                    db.db_session.commit()
                     
         leave_df = leave_table_generator.leave_dataframe()
         if not leave_df.empty:
@@ -532,10 +602,11 @@ def init_callbacks():
         else:
             leave_msg = 'Empty leave_record'
             leave_table = None
+        
         return [leave_msg], [leave_table]
 
 
-        # update the leave table         
+    # update the leave table         
     @callback(
     [
         Output('leave_table', 'data'), 
@@ -550,19 +621,17 @@ def init_callbacks():
     prevent_initial_call=True,
     )
     def update_leave_data(data, search, data_previous):
-        #print(data)
-        #print(data_previous)
+        print(data)
+        print(data_previous)
         staff_name = dict(parse_qsl(unquote(search))).get('?staff')
         if data == data_previous:
             raise PreventUpdate
         else:
-            if (data != None) and (data_previous) != None:
+            if (data != None) and (data_previous != None):
+                _del_index = data_previous[-1]['index']
                 for i in range(len(data)):
                     if data[i]['index'] != data_previous[i]['index']:
                         _del_index = int(data_previous[i]['index'])
-                    else:
-                        _del_index = data_previous[-1]['index']
-
                 db.db_session.query(db.Leaves).\
                 filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
                 delete()
