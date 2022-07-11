@@ -131,6 +131,47 @@ def callback():
 @config.handler.add(MessageEvent, message=LocationMessage)
 def handle_message(event):
     print(event)
+    address = event.message.address
+    latitude = event.message.latitude
+    longitude = event.message.longitude
+    title = event.message.title
+    current_loc = (event.message.latitude, event.message.longitude)
+    office_loc = (24.8457148, 121.0182065)
+    print(address, latitude, longitude, title)
+
+    user_id = event.source.user_id
+    user = db.get_or_create_user(user_id=user_id)
+    staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
+    if staff_integrity != None:
+        if title != "hiPower GreenTech":
+            distance = hs.haversine(current_loc,office_loc)
+            if distance <= 0.5:
+                location = 'office'
+            elif title:
+                location = title
+            else:
+                location = 'remote'
+            msg_reply = TextSendMessage(
+                text=f"Select Check Type if correct location",
+                quick_reply=QuickReply(
+                    items=[
+                        QuickReplyButton(action=PostbackAction(
+                            label="Check In",
+                            data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkin&location={location}',
+                            )),
+                        QuickReplyButton(action=PostbackAction(
+                            label="Check Out",
+                            data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkout&location={location}',
+                            )),
+                        QuickReplyButton(action=LocationAction(f"Send location")),
+                    ]
+                    )
+                )
+            config.line_bot_api.reply_message(
+                event.reply_token,
+                msg_reply
+                )
+
 
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -148,10 +189,17 @@ def handle_message(event):
         user = db.get_or_create_user(user_id=user_id)
         staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
         if staff_integrity != None:
-            if msg_text in ['check in']:
-                msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
-            elif msg_text in ['check out']:
-                msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
+            if msg_text in ['check in', 'check out']:
+                msg_reply = TextSendMessage(
+                    text=f"Share your location",
+                    quick_reply=QuickReply(
+                        items=[
+                            QuickReplyButton(action=LocationAction(f"Send location")),
+                        ]
+                        )
+                    )
+                #msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
+                #msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
             elif msg_text in ['personal dashboard']:
                 msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
                                                 template=ButtonsTemplate(text='Peek ur dashboard',
@@ -172,27 +220,14 @@ def handle_message(event):
                                                                                         uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/leave_form?staff={staff_integrity.staff_name}'),
                                                                         ])
                                                 ),
-                '''
-                msg_reply = TextSendMessage(text="Scroll Right to select your type of leave",
-                                            quick_reply=QuickReply(items=[
-                                                                    QuickReplyButton(action=PostbackAction(label="Personal_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Personal_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Sick_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Sick_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Business_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Business_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Deffered_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Deffered_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Annual_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Annual_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Marital_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Marital_Leave_start&moment={now_datetime}')),
-                                                                    QuickReplyButton(action=PostbackAction(label="Maternity_Leave", data=f'id=1&staff_name={staff_integrity.staff_name}&check=Maternity_Leave_start&moment={now_datetime}')),
-                                                                    ]
-                                                                    )
-                                    )
-                '''                                
+                
 
     if (msg_reply != None) and (msg_source != 'group'): 
         config.line_bot_api.reply_message(
             event.reply_token,
             msg_reply
             )
-            
+
 
 @config.handler.add(PostbackEvent)
 def handle_postback(event):
@@ -209,22 +244,40 @@ def handle_postback(event):
         id = back_dict.get('id')
         staff_name = back_dict.get('staff_name')
         check = back_dict.get('check')
-        moment = back_dict.get('moment') # postback from id=2
+        moment = back_dict.get('moment')
+        location = back_dict.get('location')
         
+        share_loc_msg = TextSendMessage(
+            text=f"Share your {check} location",
+            quick_reply=QuickReply(
+                items=[
+                   QuickReplyButton(action=LocationAction(f"Send {check} location")),
+                ]
+                )
+            )
+
         try:
-            if (id == '0') and (params != None): # id=0 action=datetimepicker
-                _moment = strptime(event.postback.params.get('datetime').lower())
-                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=_moment)
-                #msg_reply = TextSendMessage(text=f'{data} @ {moment}')
-            elif id == '1': # id=1 action=postback
+            if (id == '0'):
+                msg_reply = db.location_bubble(check=check, staff_name=staff_name, location=location)
+            elif (id == '1'):
+                msg_reply = TextSendMessage(
+                    text=f"Share your location",
+                    quick_reply=QuickReply(
+                        items=[
+                            QuickReplyButton(action=LocationAction(f"Send location")),
+                        ]
+                        )
+                    )
+            elif id == '2': 
                 if check == 'checkin':
                     img_url = checkin_img_url
                 elif check == 'checkout':
                     img_url = checkout_img_url
-                elif '_Leave' in check:
-                    img_url = checkin_img_url
-                msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name, now=now_datetime)
-            elif id == '2': # id=2 action=postback
+                msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name, now=now_datetime, location=location)
+            elif (id == '3') and (params != None): # id=0 action=datetimepicker 
+                _datetime = strptime(event.postback.params.get('datetime').lower())
+                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=_datetime, location=location)
+            elif id == '4': 
                 moment = strptime(moment)
                 # check in and check out table should be compared
                 config.logging.debug(datetime.now())
@@ -244,15 +297,15 @@ def handle_postback(event):
                                     break
                             else:
                             # case: check correctly or first time check
-                                checkin = db.CheckIn(staff_name=staff_name, created_time=moment)
+                                checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
                                 db.db_session.add(checkin)
                                 db.db_session.commit()
                                 if (moment.hour > 8) :
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='You are late! Slacker!')]
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
                                 elif (moment.hour == 8) and (moment.hour > 30):
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Close...but you are still late!')]
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
                                 else:
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')]  
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
                         '''
                         # case: check prior
                         if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
@@ -283,16 +336,16 @@ def handle_postback(event):
                                 continue
                             # case: check correctly and first time check
                         elif i == 2:
-                            checkout = db.CheckOut(staff_name=staff_name, created_time=moment)
+                            checkout = db.CheckOut(staff_name=staff_name, created_time=moment, check_place=location)
                             print('check here')
                             db.db_session.add(checkout)
                             db.db_session.commit()
                             if (moment.hour > 17) :
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Good day, Worker!')]
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nGood day, Worker!')]
                             elif (moment.hour == 17) and (moment.hour < 30):
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Efficiency is your motto!')]
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nEfficiency is your motto!')]
                             else:
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}'), TextSendMessage(text='Wish you have a good day. Mate!')] 
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')] 
                         '''
                         # case: check belatedly
                         if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):

@@ -266,7 +266,7 @@ def init_callbacks():
                             html.Div(id='sum_string'),
                         ])
                         ]), 
-                        width=10),
+                        width=11),
                 dbc.Col(html.Div(), width='auto'),
             ],
             justify="center"
@@ -531,6 +531,10 @@ def init_callbacks():
                 bdays_hdays_df = leave_table_generator.calendar.bdays_hdays()
                 _successful_record = True
                 for i in staff.Leaves_time:
+                    if _start > _end:
+                        _successful_record = False
+                        leave_msg = f'time inversion found: {_start} > {_end}'
+                        break
                     _record_start = i.start.strftime("%Y-%m-%d %H:%M:%S")
                     _record_end = i.end.strftime("%Y-%m-%d %H:%M:%S")
                     _record_range = DateTimeRange(_record_start, _record_end)

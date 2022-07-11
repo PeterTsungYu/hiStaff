@@ -90,7 +90,7 @@ class CheckIn(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
-    check_place = Column(String, default='office')
+    check_place = Column(String, default='')
     
     def __repr__(self):
         return f'<CheckIn {self.id!r}>'
@@ -450,7 +450,50 @@ class table_generator:
         return df, required_hours
 
 ##======================line_msg==================================
-def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='Pls Select Date/Time'):
+def location_bubble(check: str, staff_name: str, location='Location'):
+    '''
+    check: 'checkin' or 'checkout'
+    '''
+    bubble = BubbleContainer(
+                direction='ltr',
+                body=BoxComponent(
+                    layout='vertical',
+                    spacing='sm',
+                    contents=[
+                        TextComponent(
+                            text=f"{check} {staff_name}\nLocation: {location}",
+                            weight='bold',
+                            size='xl',
+                            wrap=True,
+                            contents=[]
+                        ),
+                    ]
+                ),
+                footer=BoxComponent(
+                    layout='vertical',
+                    spacing='sm',
+                    contents=[
+                        ButtonComponent(
+                            style='primary',
+                            action=PostbackAction(
+                                label="Revise Location",
+                                data=f'id=1&staff_name={staff_name}&check={check}',
+                            )
+                        ),
+                        ButtonComponent(
+                            style='primary',
+                            action=PostbackAction(
+                                label="Proceed to next",
+                                data=f'id=2&staff_name={staff_name}&check={check}&location={location}',
+                            )
+                        )
+                    ]
+                )
+            )
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check} yourself!', contents=bubble)
+
+
+def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='Pls Select Date/Time', location='Location'):
     print((now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M"))
     '''
     check: 'checkin' or 'checkout' or 'take a leave'
@@ -458,7 +501,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
     if check == 'checkin':
         datetimepicker = DatetimePickerAction(
                             label="moment",
-                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             max = now.strftime("%Y-%m-%dT")+'23:59',
@@ -467,7 +510,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
     elif check == 'checkout':
         datetimepicker = DatetimePickerAction(
                             label="moment",
-                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             min = now.strftime("%Y-%m-%dT")+'00:00',
@@ -476,7 +519,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
     elif '_Leave' in check :
         datetimepicker = DatetimePickerAction(
                             label="moment",
-                            data=f'id=0&staff_name={staff_name}&check={check}',
+                            data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
                             min = (now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M")
@@ -514,7 +557,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                         ),
                         TextComponent(
                             margin='md',
-                            text=f"{check} @ {moment}",
+                            text=f"{check}\nLocation: {location}\nDateTime: {moment}",
                             wrap=True,
                             size='xs',
                             color='#aaaaaa'
@@ -535,7 +578,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
             )
     return FlexSendMessage(alt_text=f'Hi {staff_name}, Clock!', contents=bubble)
 
-def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time'):
+def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', location='Location'):
     bubble = BubbleContainer(
                 direction='ltr',
                 body=BoxComponent(
@@ -543,7 +586,7 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time'):
                     spacing='sm',
                     contents=[
                         TextComponent(
-                            text=f"{check} {staff_name} @ {moment}",
+                            text=f"{check} {staff_name}\nLocation: {location}\nDateTime: {moment}",
                             weight='bold',
                             size='xl',
                             wrap=True,
@@ -558,15 +601,15 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time'):
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
-                                label="Revise",
-                                data=f'id=1&staff_name={staff_name}&check={check}',
+                                label="Revise DateTime",
+                                data=f'id=2&staff_name={staff_name}&check={check}&location={location}',
                             )
                         ),
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
                                 label="That's it",
-                                data=f'id=2&staff_name={staff_name}&check={check}&moment={moment}',
+                                data=f'id=4&staff_name={staff_name}&check={check}&moment={moment}&location={location}',
                             )
                         )
                     ]
