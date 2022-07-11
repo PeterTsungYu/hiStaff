@@ -26,6 +26,7 @@ def strf_datetime(dt) -> str:
                 hour=int(time_args[0]), minute=int(time_args[1]), second=int(time_args[2]))
                 )
 
+import haversine as hs
 
 # custom
 import config
@@ -127,6 +128,10 @@ def callback():
     return 'OK'
 
 
+@config.handler.add(MessageEvent, message=LocationMessage)
+def handle_message(event):
+    print(event)
+
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     #print(event)
@@ -187,8 +192,7 @@ def handle_message(event):
             event.reply_token,
             msg_reply
             )
-    else:
-        pass
+            
 
 @config.handler.add(PostbackEvent)
 def handle_postback(event):
