@@ -93,12 +93,12 @@ def init_callbacks():
                             style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '140px', 'maxWidth': '220px', 'width': '200px',
+                                'minWidth': '200px', 'maxWidth': '220px', 'width': '200px',
                                 'fontSize':26, 'font-family':'sans-serif'
                                 },
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
-                                'height': 30
+                                'height': 'auto'
                             },
                             style_data_conditional=[
                                 {
@@ -126,7 +126,7 @@ def init_callbacks():
                                 {
                                     column: {'value': f'Edit with following format: "HH:MM"', 'type': 'markdown'}
                                     if column in ['checkin', 'checkout']
-                                    else f"{value} [hr]"
+                                    else f"{value}"
                                     for column, value in row.items()
                                 } 
                                 for row in check_df.to_dict('records')[:]
@@ -361,10 +361,12 @@ def init_callbacks():
                     style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                                 'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                                'whiteSpace': 'normal',
-                                'height': '35px',
                                 'fontSize':26, 'font-family':'sans-serif'
                                 },
+                    style_data={                # overflow cells' content into multiple lines
+                            'whiteSpace': 'normal',
+                            'height': 'auto'
+                        },
                     style_header={
                                 'backgroundColor': '#0074D9',
                                 'color': 'white'
@@ -400,15 +402,17 @@ def init_callbacks():
                 filter_action="native",
                 page_action="native",
                 page_current= 0,
-                page_size= 10,
+                page_size= 20,
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                             'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                            'whiteSpace': 'normal',
-                            'height': '35px',
                             'fontSize':26, 'font-family':'sans-serif'
                             },
+                style_data={                # overflow cells' content into multiple lines
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                    },
                 style_header={
                             'backgroundColor': '#0074D9',
                             'color': 'white'
@@ -441,10 +445,12 @@ def init_callbacks():
             style_cell={ 
                         'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                         'minWidth': '80px', 'maxWidth': '180px', 'width': '120px',
-                        'whiteSpace': 'normal',
-                        'height': '35px',
                         'fontSize':22, 'font-family':'sans-serif'
                         },
+            style_data={                # overflow cells' content into multiple lines
+                'whiteSpace': 'normal',
+                'height': 'auto'
+            },
             style_header={
                         'backgroundColor': '#0074D9',
                         'color': 'white'
@@ -594,10 +600,12 @@ def init_callbacks():
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
                             'minWidth': '130px', 'maxWidth': '200px', 'width': '180px',
-                            'whiteSpace': 'normal',
-                            'height': '35px',
                             'fontSize':26, 'font-family':'sans-serif'
                             },
+                style_data={                # overflow cells' content into multiple lines
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                    },
                 style_header={
                             'backgroundColor': '#0074D9',
                             'color': 'white'

@@ -90,7 +90,7 @@ class CheckIn(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
-    check_place = Column(String, default='')
+    check_place = Column(String, default='None')
     
     def __repr__(self):
         return f'<CheckIn {self.id!r}>'
@@ -100,7 +100,7 @@ class CheckOut(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
-    check_place = Column(String, default='office')
+    check_place = Column(String, default='None')
     def __repr__(self):
         return f'<CheckOut {self.id!r}>'
 
@@ -158,6 +158,7 @@ Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 Staff_profile_lst = [
     Staffs(staff_name='謝宗佑', Annual_Leave=10),
     Staffs(staff_name='佳嶸'),
+    Staffs(staff_name='Ethan Jian (Laertes)'),
     #Staffs(staff_name='Jessie'),
     ]
 Staff_profile_name_lst = [i.staff_name for i in Staff_profile_lst]
@@ -274,15 +275,27 @@ class all_table_generator:
         end = self.calendar.end
         date_index = self.calendar.date_index.date
         for staff in self.staff_lst:
-            out_dict = {}
-            for i in staff.checkout_time:
-                out_dict[i.created_time.date()]=i.created_time
-            out_lst = [out_dict[i].time() if i in out_dict.keys() else '' for i in date_index]
-
+            location_dict = {}
             in_dict = {}
             for i in staff.checkin_time:
-                in_dict[i.created_time.date()]=i.created_time
-            in_lst = [in_dict[i].time() if i in in_dict.keys() else '' for i in date_index]
+                if start <= i.created_time.date() <= end: 
+                    in_dict[i.created_time.date()]=i.created_time
+                    location_dict[i.created_time.date()] = {}
+                    location_dict[i.created_time.date()]['in'] = i.check_place
+            in_lst = [f"{str(in_dict[i].hour).zfill(2)}:{str(in_dict[i].minute).zfill(2)}" if i in in_dict.keys() else None for i in date_index]
+
+            out_dict = {}
+            for i in staff.checkout_time:
+                if start <= i.created_time.date() <= end: 
+                    out_dict[i.created_time.date()]=i.created_time
+                    if isinstance(location_dict.get(i.created_time.date()), dict):
+                        location_dict[i.created_time.date()]['out'] = i.check_place
+                    else:
+                        location_dict[i.created_time.date()] = {}
+                        location_dict[i.created_time.date()]['out'] = i.check_place
+            out_lst = [f"{str(out_dict[i].hour).zfill(2)}:{str(out_dict[i].minute).zfill(2)}" if i in out_dict.keys() else None for i in date_index]
+
+            location_lst = [f"{location_dict[i].get('in')} {location_dict[i].get('out')}" if i in location_dict.keys() else None for i in date_index]
             
             worktime_dict = {}
             for i in date_index:
@@ -318,7 +331,7 @@ class all_table_generator:
             required_amount = self.calendar.bdays_count().sum()*9
             diff = (work_amount + leave_amount) - required_amount
 
-            in_out_lst = [f'{in_lst[i]} {out_lst[i]}\n{leave_time_lst[i]}' for i in range(len(date_index))]
+            in_out_lst = [f'{in_lst[i]} {out_lst[i]} \n{leave_time_lst[i]}' for i in range(len(date_index))]
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})
             #print(df)
 
@@ -393,17 +406,27 @@ class table_generator:
         end = datetime.strptime(self.end, '%Y-%m-%d').date()
         date_index = self.calendar.date_index.date
         bdays_hdays_df = self.calendar.bdays_hdays()
-        out_dict = {}
-        for i in self.staff.checkout_time:
-            if start <= i.created_time.date() <= end: 
-                out_dict[i.created_time.date()]=i.created_time
-        out_lst = [f"{out_dict[i].hour}:{out_dict[i].minute}" if i in out_dict.keys() else None for i in date_index]
-
+        location_dict = {}
         in_dict = {}
         for i in self.staff.checkin_time:
             if start <= i.created_time.date() <= end: 
                 in_dict[i.created_time.date()]=i.created_time
-        in_lst = [f"{in_dict[i].hour}:{in_dict[i].minute}" if i in in_dict.keys() else None for i in date_index]
+                location_dict[i.created_time.date()] = {}
+                location_dict[i.created_time.date()]['in'] = i.check_place
+        in_lst = [f"{str(in_dict[i].hour).zfill(2)}:{str(in_dict[i].minute).zfill(2)}" if i in in_dict.keys() else None for i in date_index]
+
+        out_dict = {}
+        for i in self.staff.checkout_time:
+            if start <= i.created_time.date() <= end: 
+                out_dict[i.created_time.date()]=i.created_time
+                if isinstance(location_dict.get(i.created_time.date()), dict):
+                    location_dict[i.created_time.date()]['out'] = i.check_place
+                else:
+                    location_dict[i.created_time.date()] = {}
+                    location_dict[i.created_time.date()]['out'] = i.check_place
+        out_lst = [f"{str(out_dict[i].hour).zfill(2)}:{str(out_dict[i].minute).zfill(2)}" if i in out_dict.keys() else None for i in date_index]
+
+        location_lst = [f"In:{location_dict[i].get('in')}\nOut:{location_dict[i].get('out')}" if i in location_dict.keys() else None for i in date_index]
         
         worktime_dict = {}
         for i in date_index:
@@ -440,7 +463,7 @@ class table_generator:
         agg_lst = [round(sum(worktime_lst[:i+1]) + sum(leave_amount_lst[:i+1]), 2) for i in range(len(worktime_lst))]
         #print(agg_lst)
 
-        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'leave_start':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
+        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'location':location_lst, 'worktime[hr]':worktime_lst, 'leave_start':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y")
         df.iloc[:] = df.iloc[::-1].values # reverse rows
 

@@ -175,7 +175,7 @@ def handle_message(event):
 
 @config.handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    #print(event)
+    print(event)
     now_datetime = datetime.now()
 
     msg_source = event.source.type
@@ -286,26 +286,26 @@ def handle_postback(event):
                 now = datetime.now()
                 config.logging.debug(now)
                 if check == 'checkin':
-                    for i in [0]:    
+                    for i in [0,1]:    
                         if i == 0: 
                         # compared to the last check
-                            if last_checkin != None:
+                            if (last_checkin != None):
                                 last_checkin_moment = last_checkin.created_time
                                 # case: check already
                                 if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
                                     msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
                                     break
+                        elif i == 1:
+                        # case: check correctly or first time check
+                            checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
+                            db.db_session.add(checkin)
+                            db.db_session.commit()
+                            if (moment.hour > 8) :
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
+                            elif (moment.hour == 8) and (moment.hour > 30):
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
                             else:
-                            # case: check correctly or first time check
-                                checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
-                                db.db_session.add(checkin)
-                                db.db_session.commit()
-                                if (moment.hour > 8) :
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
-                                elif (moment.hour == 8) and (moment.hour > 30):
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
-                                else:
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
+                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
                         '''
                         # case: check prior
                         if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
