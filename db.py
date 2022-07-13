@@ -6,6 +6,8 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from datetime import datetime, date, timedelta
 import numpy as np
 import pandas as pd
+import os
+from dotenv import load_dotenv
 def strptime(time):
     if 't' in time:
         return datetime.strptime(time[2:], '%y-%m-%dt%H:%M')
@@ -30,36 +32,13 @@ engine = create_engine(config.db_path, convert_unicode=True)
 #print(engine)
 
 db_session = scoped_session(sessionmaker(autocommit=False, autoflush=True, bind=engine))
-print(db_session)
+#print(db_session)
 # When True, all query operations will issue a Session.flush() call to this Session before proceeding
 # It’s typical that autoflush is used in conjunction with autocommit=False
 # The Session object features autobegin the tx state, so that normally it is not necessary to call the Session.begin() method explicitly.
 
 Base = declarative_base()
 Base.query = db_session.query_property()
-
-def init_db():
-    #config.logger.info(inspect(engine).has_table('staffs_table'))
-    if inspect(engine).has_table('staffs_table'):
-        _staff_lst = db_session.query(Staffs).order_by(Staffs.id).all()
-
-        if len(Staff_profile_name_lst) == len(_staff_lst):
-            for i in range(len(Staff_profile_name_lst)):
-                if Staff_profile_name_lst[i] != _staff_lst[i].staff_name:
-                    db_session.query(Staffs).delete()
-                    db_session.add_all(Staff_profile_lst) # a way to insert many query
-                    break
-        else:
-            print(2)
-            db_session.query(Staffs).delete()
-            db_session.add_all(Staff_profile_lst) # a way to insert many query
-        
-    else:
-        Base.metadata.create_all(bind=engine)
-        db_session.add_all(Staff_profile_lst)
-    db_session.commit()
-    db_session.remove()
-    #config.logger.debug(db_session.query(Staffs).all())
 
 
 def get_or_create_user(user_id):
@@ -133,7 +112,7 @@ leaves_type = {
     
 class Staffs(Base):
     __tablename__ = 'staffs_table'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String, primary_key=True)
     staff_name = Column(String, nullable=False)
     Official_Leave = Column(Float, default=365)
     Personal_Leave = Column(Float, default=14)
@@ -155,13 +134,48 @@ Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 
-Staff_profile_lst = [
-    Staffs(staff_name='謝宗佑', Annual_Leave=10),
-    Staffs(staff_name='佳嶸'),
-    Staffs(staff_name='Ethan Jian (Laertes)'),
-    #Staffs(staff_name='Jessie'),
+# staff list and uuid
+Staff_profile_checklst = [ #temp lst for checking uuid
+    Staffs(staff_name='Peter', Annual_Leave=10),
+    Staffs(staff_name='Nina'),
+    Staffs(staff_name='Ethan'),
+    Staffs(staff_name='Marvin'),
+    Staffs(staff_name='Johnson'),
     ]
-Staff_profile_name_lst = [i.staff_name for i in Staff_profile_lst]
+
+Staff_profile_lst = [] # finalize lst with valid uuid
+for i in range(len(Staff_profile_checklst)): 
+    if not os.environ.get(Staff_profile_checklst[i].staff_name):
+        continue
+    else:
+        Staff_profile_checklst[i].uuid = os.environ.get(Staff_profile_checklst[i].staff_name) 
+        Staff_profile_lst.append(Staff_profile_checklst[i])
+print([i.staff_name for i in Staff_profile_lst])
+
+def init_staffs_table():
+    if inspect(engine).has_table('staffs_table'):
+        _staff_lst = db_session.query(Staffs).all()
+        _lst_profile = [i.staff_name for i in Staff_profile_lst]
+        _lst_db = [i.staff_name for i in _staff_lst]
+
+        for i in Staff_profile_lst:
+            if i.staff_name not in _lst_db:
+                db_session.add(i)
+                config.logger.debug(f'add {i.staff_name}')
+        for i in _staff_lst:
+            if i.staff_name not in _lst_profile:
+                db_session.delete(i)
+                config.logger.debug(f'del {i.staff_name}')
+        #db_session.query(Staffs).delete()
+        #db_session.add_all(Staff_profile_lst) # a way to insert many query
+    else:
+        db_session.add_all(Staff_profile_lst)
+        #Base.metadata.create_all(bind=engine)
+    db_session.commit()
+    db_session.remove()
+    #config.logger.debug(db_session.query(Staffs).all())
+
+
 
 class staffs_datatable_generator:
     def __init__(self, staff_name):
@@ -644,8 +658,10 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
+    init_staffs_table()
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
-    staffs_datatable_generator(staff_name='謝宗佑').staffs_datatable()
+    print(staffs_datatable_generator(staff_name='Peter').staffs_datatable())
     df = all_table_generator(year=2022, month=7).check_dataframe()
     print(df[df['date']=='diff[hr]'].to_dict('records'))
+    #print(Base.metadata)

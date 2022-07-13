@@ -54,10 +54,12 @@ def sched_update_deferred_leave():
     print(db.db_session)
 
 ##======================routes==================================
+'''
 @app.before_request
 def init_tables():
     db.init_db()
     config.logger.debug('Staff table is up to date')
+'''
 
 # an “on request end” event
 # automatically remove database sessions at the end of the request 
