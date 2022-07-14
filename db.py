@@ -32,6 +32,7 @@ engine = create_engine(config.db_path, convert_unicode=True)
 #print(engine)
 
 db_session = scoped_session(sessionmaker(autocommit=False, autoflush=True, bind=engine))
+#print(db_session())
 #print(db_session)
 # When True, all query operations will issue a Session.flush() call to this Session before proceeding
 # It’s typical that autoflush is used in conjunction with autocommit=False
@@ -134,25 +135,46 @@ Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 
-# staff list and uuid
-Staff_profile_checklst = [ #temp lst for checking uuid
-    Staffs(staff_name='Peter', Annual_Leave=10),
-    Staffs(staff_name='Nina'),
-    Staffs(staff_name='Ethan'),
-    Staffs(staff_name='Marvin'),
-    Staffs(staff_name='Johnson'),
-    ]
+def get_Staff_profile_lst():
+    # staff list and uuid
+    Staff_profile_checklst = [ #temp lst for checking uuid
+        Staffs(staff_name='Peter', Annual_Leave=10),
+        Staffs(staff_name='Nina'),
+        Staffs(staff_name='Ethan'),
+        Staffs(staff_name='Marvin'),
+        Staffs(staff_name='Johnson'),
+        ]
 
-Staff_profile_lst = [] # finalize lst with valid uuid
-for i in range(len(Staff_profile_checklst)): 
-    if not os.environ.get(Staff_profile_checklst[i].staff_name):
-        continue
-    else:
-        Staff_profile_checklst[i].uuid = os.environ.get(Staff_profile_checklst[i].staff_name) 
-        Staff_profile_lst.append(Staff_profile_checklst[i])
-print([i.staff_name for i in Staff_profile_lst])
+    Staff_profile_lst = [] # finalize lst with valid uuid
+    for i in range(len(Staff_profile_checklst)): 
+        if not os.environ.get(Staff_profile_checklst[i].staff_name):
+            continue
+        else:
+            Staff_profile_checklst[i].uuid = os.environ.get(Staff_profile_checklst[i].staff_name) 
+            Staff_profile_lst.append(Staff_profile_checklst[i])
+    return Staff_profile_lst
+
 
 def init_staffs_table():
+    print(db_session())
+    Staff_profile_lst = get_Staff_profile_lst()
+    print(Staff_profile_lst)
+
+    if inspect(engine).has_table('staffs_table'):
+        db_session.query(Staffs).delete()
+    #Base.metadata.create_all(bind=engine)
+    db_session.add_all(Staff_profile_lst) # a way to insert many query
+    db_session.commit()
+    #db_session.remove()
+    config.logger.debug('Initialized Staff table')
+    #config.logger.debug(db_session.query(Staffs).all())
+
+
+def update_staffs_table():
+    print(db_session())
+    Staff_profile_lst = get_Staff_profile_lst()
+    print(Staff_profile_lst)
+
     if inspect(engine).has_table('staffs_table'):
         _staff_lst = db_session.query(Staffs).all()
         _lst_profile = [i.staff_name for i in Staff_profile_lst]
@@ -172,7 +194,8 @@ def init_staffs_table():
         db_session.add_all(Staff_profile_lst)
         #Base.metadata.create_all(bind=engine)
     db_session.commit()
-    db_session.remove()
+    #db_session.remove()
+    config.logger.debug('Staff table is up to date')
     #config.logger.debug(db_session.query(Staffs).all())
 
 
@@ -659,9 +682,12 @@ def reply_dash_msg():
 
 if __name__ == "__main__":
     init_staffs_table()
+    update_staffs_table()
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
     print(staffs_datatable_generator(staff_name='Peter').staffs_datatable())
     df = all_table_generator(year=2022, month=7).check_dataframe()
     print(df[df['date']=='diff[hr]'].to_dict('records'))
     #print(Base.metadata)
+    print(db_session())
+    db_session.remove()
