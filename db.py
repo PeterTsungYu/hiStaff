@@ -201,9 +201,8 @@ def update_staffs_table():
 
 
 class staffs_datatable_generator:
-    def __init__(self, staff_name):
-        self.staff_name=staff_name
-        self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
+    def __init__(self, staff):
+        self.staff=staff
 
     def staffs_datatable(self):
         df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['Type', 'Unit[hr]', 'Quota[day]'])
@@ -211,13 +210,13 @@ class staffs_datatable_generator:
 
 
 class season_table_generator:
-    def __init__(self, staff_name, year, season):
+    def __init__(self, staff, year, season):
         self.season = season
-        self.staff_name=staff_name
-        if staff_name == 'All':
+        self.staff = staff
+        if staff == 'All':
             self.staff_lst = db_session.query(Staffs)
         else:
-            self.staff_lst = [db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()]
+            self.staff_lst = [staff]
         self.staff_name_lst = [staff.staff_name for staff in self.staff_lst]
         season_dict = {'Q1':[1,2,3], 'Q2':[4,5,6], 'Q3':[7,8,9], 'Q4':[10,11,12]}
         self.month_lst = season_dict[season]
@@ -404,16 +403,15 @@ class all_table_generator:
 
 
 class table_generator:
-    def __init__(self, start, end, staff_name):
+    def __init__(self, start, end, staff):
         self.start = start
         self.end = end
         self.calendar=hiCalendar(start, end)
-        self.staff_name=staff_name
-        self.staff=db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()
+        self.staff=staff
 
     def gen_table(self, table_cls):
         df = pd.read_sql(
-            sql = db_session.query(table_cls).filter(table_cls.staff_name==self.staff_name).statement,
+            sql = db_session.query(table_cls).filter(table_cls.staff_name==self.staff.staff_name).statement,
             con = engine
         )
         return df

@@ -351,7 +351,7 @@ def init_callbacks():
         if season == None:
             raise PreventUpdate
         else:
-            df_lst = db.season_table_generator(staff_name=staff.staff_name, year=int(year), season=season).check_dataframe()
+            df_lst = db.season_table_generator(staff=staff if staff else 'All', year=int(year), season=season).check_dataframe()
             table_lst = []
             for df in df_lst:
                 table = dash_table.DataTable(
@@ -437,7 +437,7 @@ def init_callbacks():
     def leave_quota_table(leave_type, leave_table, search, pathname):
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        df_leave_quota = db.staffs_datatable_generator(staff.staff_name).staffs_datatable()
+        df_leave_quota = db.staffs_datatable_generator(staff).staffs_datatable()
         leave_quota_table = dash_table.DataTable(
             df_leave_quota.to_dict('records'), 
             [{"name": i, "id": i} for i in df_leave_quota.columns], 
@@ -522,7 +522,7 @@ def init_callbacks():
         staff=db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
         # Yearly leave 
-        leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff.staff_name)
+        leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff)
 
         leave_msg = 'Ready to take a leave. Pls Fill in all of leave_type, leave_start, leave_end, leave_reserved.'
         if submit_n_clicks:
@@ -674,7 +674,7 @@ def init_callbacks():
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         #print(start_date)
         #print(end_date)
-        check_df, required_hours = db.table_generator(start_date, end_date, staff.staff_name).check_dataframe()
+        check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
         workhour = sum(check_df['worktime[hr]'].iloc[:])
         leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
 
@@ -853,7 +853,7 @@ def init_callbacks():
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
-        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar() if _uuid else 'All'
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar() 
         #personal_data_store.data = {'staff':staff}
 
         if 'date_check?' in check_type:
@@ -867,7 +867,7 @@ def init_callbacks():
         elif 'leave_form' in check_type:
             pass
         
-        check_h1.children = str(staff.staff_name) + check_type if not isinstance(staff, str) else staff + check_type
+        check_h1.children = str(staff.staff_name) + check_type if staff else 'All' + check_type
         #home_link.children = staff + '/Sweet Home'
         #home_link.href = url_prefix + search
 
