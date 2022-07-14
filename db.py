@@ -214,7 +214,7 @@ class season_table_generator:
     def __init__(self, staff_name, year, season):
         self.season = season
         self.staff_name=staff_name
-        if staff_name == 'all':
+        if staff_name == 'All':
             self.staff_lst = db_session.query(Staffs)
         else:
             self.staff_lst = [db_session.query(Staffs).filter(Staffs.staff_name==staff_name).scalar()]

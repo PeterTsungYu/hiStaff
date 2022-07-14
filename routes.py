@@ -143,11 +143,11 @@ def handle_message(event):
 
     user_id = event.source.user_id
     user = db.get_or_create_user(user_id=user_id)
-    staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
+    staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.uuid == user.id).scalar()
     if staff_integrity != None:
         if title != "hiPower GreenTech":
             distance = hs.haversine(current_loc,office_loc)
-            if distance <= 0.5:
+            if distance <= 1:
                 location = 'office'
             elif title:
                 location = title
@@ -189,7 +189,7 @@ def handle_message(event):
     else:
         user_id = event.source.user_id
         user = db.get_or_create_user(user_id=user_id)
-        staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == user.nick_name).scalar()
+        staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.uuid == user.id).scalar()
         if staff_integrity != None:
             if msg_text in ['check in', 'check out']:
                 msg_reply = TextSendMessage(
@@ -206,9 +206,9 @@ def handle_message(event):
                 msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
                                                 template=ButtonsTemplate(text='Peek ur dashboard',
                                                                         actions=[URIAction(label=f"Check Table", 
-                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/date_check?staff={staff_integrity.staff_name}'),
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/date_check?staff={staff_integrity.uuid}'),
                                                                                 URIAction(label=f"Season Table", 
-                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/season_check?staff={staff_integrity.staff_name}')
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/season_check?staff={staff_integrity.uuid}')
                                                                                         ]
                                                                     )
                                                                     ),
@@ -219,7 +219,7 @@ def handle_message(event):
                 msg_reply = TemplateSendMessage(alt_text='Take a Leave',
                                                 template=ButtonsTemplate(text='Take a Leave',
                                                                         actions=[URIAction(label=f"Leave Form", 
-                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/leave_form?staff={staff_integrity.staff_name}'),
+                                                                                        uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/leave_form?staff={staff_integrity.uuid}'),
                                                                         ])
                                                 ),
                 

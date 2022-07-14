@@ -344,13 +344,14 @@ def init_callbacks():
             ]
         )
     def season_picker_check_table(year, season, search, pathname):
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         #print(staff)
         #print(pathname)
         if season == None:
             raise PreventUpdate
         else:
-            df_lst = db.season_table_generator(staff_name=staff, year=int(year), season=season).check_dataframe()
+            df_lst = db.season_table_generator(staff_name=staff.staff_name, year=int(year), season=season).check_dataframe()
             table_lst = []
             for df in df_lst:
                 table = dash_table.DataTable(
@@ -390,7 +391,6 @@ def init_callbacks():
             ]
         )
     def mypicker_check_table(year, month, search, pathname):
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
         #print(int(datetime.strptime(month, "%b").month))
         if 'date_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
@@ -435,8 +435,9 @@ def init_callbacks():
             ]
         )
     def leave_quota_table(leave_type, leave_table, search, pathname):
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
-        df_leave_quota = db.staffs_datatable_generator(staff).staffs_datatable()
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
+        df_leave_quota = db.staffs_datatable_generator(staff.staff_name).staffs_datatable()
         leave_quota_table = dash_table.DataTable(
             df_leave_quota.to_dict('records'), 
             [{"name": i, "id": i} for i in df_leave_quota.columns], 
@@ -517,11 +518,11 @@ def init_callbacks():
         ]
     )
     def take_a_leave_to_db(submit_n_clicks, search, pathname, leave_type, leave_start, leave_end, leave_reserved):
-        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
-        staff=db.db_session.query(db.Staffs).filter(db.Staffs.staff_name==staff_name).scalar()
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff=db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
         # Yearly leave 
-        leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff_name)
+        leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff.staff_name)
 
         leave_msg = 'Ready to take a leave. Pls Fill in all of leave_type, leave_start, leave_end, leave_reserved.'
         if submit_n_clicks:
@@ -559,7 +560,7 @@ def init_callbacks():
                     end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
                     # add to leaves table
                     db.db_session.add(db.Leaves(
-                        staff_name=staff_name, 
+                        staff_name=staff.staff_name, 
                         type=leave_type, 
                         start=start,
                         end=end,  
@@ -572,12 +573,12 @@ def init_callbacks():
                             _unit = v['unit']/8
                             _type = k
                             break
-                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff_name).scalar().__dict__.get(_type)
+                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff.staff_name).scalar().__dict__.get(_type)
                     print(cur_quota)
                     updated_quota = cur_quota - leave_reserved*_unit
                     print(updated_quota)
                     db.db_session.query(db.Staffs).\
-                    filter(db.Staffs.staff_name == staff_name).\
+                    filter(db.Staffs.staff_name == staff.staff_name).\
                     update({f"{_type}": updated_quota})
 
                     leave_msg = 'Successful leave_record'
@@ -635,7 +636,8 @@ def init_callbacks():
     def update_leave_data(data, search, data_previous):
         print(data)
         print(data_previous)
-        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         if data == data_previous:
             raise PreventUpdate
         else:
@@ -645,7 +647,7 @@ def init_callbacks():
                     if data[i]['index'] != data_previous[i]['index']:
                         _del_index = int(data_previous[i]['index'])
                 db.db_session.query(db.Leaves).\
-                filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
+                filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).\
                 delete()
                 db.db_session.commit()
             #refresh the page
@@ -668,10 +670,11 @@ def init_callbacks():
         )
     def datepicker_check_table(start_date, end_date, search):
         #print(f'{search} from datepicker_check_table')
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         #print(start_date)
         #print(end_date)
-        check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+        check_df, required_hours = db.table_generator(start_date, end_date, staff.staff_name).check_dataframe()
         workhour = sum(check_df['worktime[hr]'].iloc[:])
         leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
 
@@ -748,7 +751,8 @@ def init_callbacks():
     def update_check_data(submit_n_clicks, search, pathname, data, data_previous):
         #print(data) # list of dictionaries of str or None
         #print(data_previous)
-        staff_name = dict(parse_qsl(unquote(search))).get('?staff')
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         if not submit_n_clicks:
             raise PreventUpdate
         else:
@@ -781,7 +785,7 @@ def init_callbacks():
                             return [False, f"{pathname}{search}", str(e),]
                         #delete the row
                         db.db_session.query(table).\
-                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
                         delete()
                     elif pre == None:
                         try:
@@ -789,7 +793,7 @@ def init_callbacks():
                         except Exception as e:
                             return [False, f"{pathname}{search}", str(e),]
                         # insert a row
-                        db.db_session.add(table(staff_name=staff_name, created_time=cur))
+                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur))
                     else:
                         try:
                             pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
@@ -799,7 +803,7 @@ def init_callbacks():
                             return [False, f"{pathname}{search}", str(e),]
                         # update the row
                         db.db_session.query(table).\
-                        filter(table.staff_name == staff_name, table.created_time == pre).\
+                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
                         update({"created_time": cur})
             db.db_session.commit()
             #refresh the page
@@ -819,8 +823,9 @@ def init_callbacks():
         )
     def index_linking(value, search):
         print(f'{search} from index_linking')
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
-        children = staff + '/' + value
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
+        children = staff.staff_name + '/' + value
         href = url_prefix + '/' + value + search 
         config.logging.debug(href)
         return children, href
@@ -847,9 +852,9 @@ def init_callbacks():
 
         config.logging.debug([pathname, search])
         check_type = pathname.split(f'{url_prefix}')[-1]
-        staff = dict(parse_qsl(unquote(search))).get('?staff')
-        personal_data_store.data = {'staff':staff}
-        config.logging.debug([check_type, staff])
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar() if _uuid else 'All'
+        #personal_data_store.data = {'staff':staff}
 
         if 'date_check?' in check_type:
             other_type = '/season_check'
@@ -862,7 +867,7 @@ def init_callbacks():
         elif 'leave_form' in check_type:
             pass
         
-        check_h1.children = str(staff) + check_type
+        check_h1.children = str(staff.staff_name) + check_type if not isinstance(staff, str) else staff + check_type
         #home_link.children = staff + '/Sweet Home'
         #home_link.href = url_prefix + search
 
