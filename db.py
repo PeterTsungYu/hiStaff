@@ -348,19 +348,19 @@ class all_table_generator:
                             # unit within a day
                             if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
                                 leave_amount = v['unit'] * int(i.reserved)
-                                leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start.time()}', 'leave_amount': leave_amount}
+                                leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}\n{leave_amount}[hr]', 'leave_amount': leave_amount} if not leave_dict.get(i.start.date()) else {'leave_start': f'{leave_dict[i.start.date()]["leave_start"]}\n{leave_type}\n{i.start}\n{leave_amount}[hr]', 'leave_amount': leave_dict[i.start.date()]["leave_amount"]+leave_amount}
                             # unit across a day
                             else:
                                 leave_amount = int(i.reserved)
                                 for u in pd.date_range(i.start.date(), i.end.date()):
                                     if start <= u <= end:
                                         if u.date() == i.start.date():
-                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start.time()}', 'leave_amount': v['unit']}
+                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}\n{v["unit"]}[hr]', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{i.start}\n{v["unit"]}[hr]', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
                                         else:
-                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
+                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}\n{v["unit"]}[hr]', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}\n{v["unit"]}[hr]', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
                             break
             #print(leave_dict)
-            leave_time_lst = [f"{leave_dict[i]['leave_start']} for {leave_dict[i]['leave_amount']}[hr]" if i in leave_dict.keys() else '' for i in date_index]
+            leave_time_lst = [f"{leave_dict[i]['leave_start']}\nTotal for {leave_dict[i]['leave_amount']}[hr]" if i in leave_dict.keys() else '' for i in date_index]
             leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]   
             work_amount = round(sum(worktime_lst), 2)
             leave_amount = round(sum(leave_amount_lst), 2)
@@ -479,16 +479,16 @@ class table_generator:
                         # unit within a day
                         if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
                             leave_amount = v['unit'] * int(i.reserved)
-                            leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
+                            leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount} if not leave_dict.get(i.start.date()) else {'leave_start': f'{leave_dict[i.start.date()]["leave_start"]}\n{leave_type}\n{i.start}', 'leave_amount': leave_dict[i.start.date()]["leave_amount"]+leave_amount}
                         # unit across a day
                         else:
                             leave_amount = int(i.reserved)
                             for u in pd.date_range(i.start.date(), i.end.date()):
                                 if start <= u <= end:
                                     if u.date() == i.start.date():
-                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{i.start}', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
                                     else:
-                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
+                                        leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
                         break
         print(leave_dict)
         leave_time_lst = [leave_dict[i]['leave_start'] if i in leave_dict.keys() else None for i in date_index]
