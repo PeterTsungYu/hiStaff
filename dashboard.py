@@ -669,6 +669,7 @@ def init_callbacks():
             ],
         )
     def datepicker_check_table(start_date, end_date, search):
+        print('datepicker_check_table')
         #print(f'{search} from datepicker_check_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
@@ -713,6 +714,7 @@ def init_callbacks():
     prevent_initial_call=True,
     )
     def update_check_data(data, data_previous, search, pathname, start_date, end_date):
+        print('update_check_data')
         #print(data) # list of dictionaries of str or None
         #print(data_previous)
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')

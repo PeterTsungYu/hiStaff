@@ -785,11 +785,12 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
+    Base.metadata.create_all(bind=engine)
+    get_Staff_profile_lst()
     init_staffs_table()
     update_staffs_table()
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
-    print(staffs_datatable_generator(staff_name='Peter').staffs_datatable())
     df = all_table_generator(year=2022, month=7).check_dataframe()
     print(df[df['date']=='diff[hr]'].to_dict('records'))
     #print(Base.metadata)
