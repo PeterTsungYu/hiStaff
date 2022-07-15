@@ -245,13 +245,8 @@ class season_table_generator:
                 for i in staff.checkin_time:
                     in_dict[i.created_time.date()]=i.created_time
                 
-                worktime_dict = {}
-                for i in date_index:
-                    if (in_dict.get(i) != None) and (out_dict.get(i) != None):
-                        worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
-                worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
-
                 leave_dict = {}
+                leave_lst_dict = {}
                 for i in staff.Leaves_time:
                     if start <= i.start.date() <= end: 
                         for k,v in leaves_type.items():
@@ -260,18 +255,59 @@ class season_table_generator:
                                 # unit within a day
                                 if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
                                     leave_amount = v['unit'] * int(i.reserved)
-                                    leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount}
+                                    if not leave_lst_dict.get(i.start.date()):
+                                        leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount} 
+                                        leave_lst_dict[i.start.date()] = {'start': [i.start], 'end': [i.end]}  
+                                    else: 
+                                        leave_dict[i.start.date()]['leave_start'] = f'{leave_dict[i.start.date()]["leave_start"]}\n{leave_type}\n{i.start}'
+                                        leave_dict[i.start.date()]['leave_amount'] = leave_dict[i.start.date()]["leave_amount"]+leave_amount
+                                        leave_lst_dict[i.start.date()]['start'].append(i.start)
+                                        leave_lst_dict[i.start.date()]['end'].append(i.end)
                                 # unit across a day
                                 else:
                                     leave_amount = int(i.reserved)
-                                    for u in pd.date_range(i.start.date(), i.end.date()):
+                                    for u in pd.date_range(i.start.date(), i.end.date()): #pd.date_range include the start and end
                                         if start <= u <= end:
                                             if u.date() == i.start.date():
-                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                                if not leave_dict.get(u.date()):
+                                                    leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                                    leave_lst_dict[u.date()] = {'start': [i.start], 'end': [i.start+timedelta(hours=v['unit'])]}
+                                                else:
+                                                    leave_dict[u.date()]['leave_start'] = f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{i.start}'
+                                                    leave_dict[u.date()]['leave_amount'] = leave_dict[u.date()]["leave_amount"]+v['unit']
+                                                    leave_lst_dict[u.date()]['start'] = leave_lst_dict[u.date()]['start'].append(i.start)
+                                                    leave_lst_dict[u.date()]['end'] = leave_lst_dict[i.start.date()]['end'].append(i.start+timedelta(hours=v['unit']))
                                             else:
-                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}
+                                                if not leave_dict.get(u.date()):
+                                                    leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}  
+                                                    leave_lst_dict[u.date()] = {'start': [u+timedelta(hours=8)+timedelta(minutes=30)], 'end': [u+timedelta(hours=17)+timedelta(minutes=30)]} 
+                                                else: 
+                                                    leave_dict[u.date()]['leave_start'] = f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}'
+                                                    leave_dict[u.date()]['leave_amount'] = leave_dict[u.date()]["leave_amount"]+v['unit']
+                                                    leave_lst_dict[u.date()]['start'] = leave_lst_dict[u.date()]['start'].append(u+timedelta(hours=8)+timedelta(minutes=30))
+                                                    leave_lst_dict[u.date()]['end'] = leave_lst_dict[i.start.date()]['end'].append(u+timedelta(hours=17)+timedelta(minutes=30))
                                 break
                 #print(leave_dict)
+                #print(leave_lst_dict)
+                leave_time_lst = [leave_dict[i]['leave_start'] if i in leave_dict.keys() else None for i in date_index]
+                #print(leave_time_lst)
+                leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]
+                #print(leave_amount_lst)
+
+                worktime_dict = {}
+                for i in date_index:
+                    overlap = 0
+                    if (in_dict.get(i) != None) and (out_dict.get(i) != None):
+                        if leave_lst_dict.get(i):
+                            for u in range(len(leave_lst_dict[i]['start'])):
+                                latest_start = max(in_dict[i], leave_lst_dict[i]['start'][u])
+                                earliest_end = min(out_dict[i], leave_lst_dict[i]['end'][u])
+                                delta = round((earliest_end - latest_start).total_seconds()/60/60,2)
+                                overlap += max(0, delta)
+                            worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60 - overlap
+                        else:
+                            worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
+                worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
                 leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]   
                 work_amount = round(sum(worktime_lst), 2)
                 leave_amount = round(sum(leave_amount_lst), 2)
@@ -335,13 +371,8 @@ class all_table_generator:
 
             location_lst = [f"{location_dict[i].get('in')} {location_dict[i].get('out')}" if i in location_dict.keys() else None for i in date_index]
             
-            worktime_dict = {}
-            for i in date_index:
-                if (in_dict.get(i) != None) and (out_dict.get(i) != None):
-                    worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
-            worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
-            
             leave_dict = {}
+            leave_lst_dict = {}
             for i in staff.Leaves_time:
                 if start <= i.start.date() <= end: 
                     for k,v in leaves_type.items():
@@ -350,20 +381,59 @@ class all_table_generator:
                             # unit within a day
                             if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
                                 leave_amount = v['unit'] * int(i.reserved)
-                                leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}\n{leave_amount}[hr]', 'leave_amount': leave_amount} if not leave_dict.get(i.start.date()) else {'leave_start': f'{leave_dict[i.start.date()]["leave_start"]}\n{leave_type}\n{i.start}\n{leave_amount}[hr]', 'leave_amount': leave_dict[i.start.date()]["leave_amount"]+leave_amount}
+                                if not leave_lst_dict.get(i.start.date()):
+                                    leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': leave_amount} 
+                                    leave_lst_dict[i.start.date()] = {'start': [i.start], 'end': [i.end]}  
+                                else: 
+                                    leave_dict[i.start.date()]['leave_start'] = f'{leave_dict[i.start.date()]["leave_start"]}\n{leave_type}\n{i.start}'
+                                    leave_dict[i.start.date()]['leave_amount'] = leave_dict[i.start.date()]["leave_amount"]+leave_amount
+                                    leave_lst_dict[i.start.date()]['start'].append(i.start)
+                                    leave_lst_dict[i.start.date()]['end'].append(i.end)
                             # unit across a day
                             else:
                                 leave_amount = int(i.reserved)
-                                for u in pd.date_range(i.start.date(), i.end.date()):
+                                for u in pd.date_range(i.start.date(), i.end.date()): #pd.date_range include the start and end
                                     if start <= u <= end:
                                         if u.date() == i.start.date():
-                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}\n{v["unit"]}[hr]', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{i.start}\n{v["unit"]}[hr]', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
+                                            if not leave_dict.get(u.date()):
+                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{i.start}', 'leave_amount': v['unit']}
+                                                leave_lst_dict[u.date()] = {'start': [i.start], 'end': [i.start+timedelta(hours=v['unit'])]}
+                                            else:
+                                                leave_dict[u.date()]['leave_start'] = f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{i.start}'
+                                                leave_dict[u.date()]['leave_amount'] = leave_dict[u.date()]["leave_amount"]+v['unit']
+                                                leave_lst_dict[u.date()]['start'] = leave_lst_dict[u.date()]['start'].append(i.start)
+                                                leave_lst_dict[u.date()]['end'] = leave_lst_dict[i.start.date()]['end'].append(i.start+timedelta(hours=v['unit']))
                                         else:
-                                            leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}\n{v["unit"]}[hr]', 'leave_amount': v['unit']} if not leave_dict.get(u.date()) else {'leave_start': f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}\n{v["unit"]}[hr]', 'leave_amount': leave_dict[u.date()]["leave_amount"]+v['unit']}
+                                            if not leave_dict.get(u.date()):
+                                                leave_dict[u.date()] = {'leave_start': f'{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}', 'leave_amount': v['unit']}  
+                                                leave_lst_dict[u.date()] = {'start': [u+timedelta(hours=8)+timedelta(minutes=30)], 'end': [u+timedelta(hours=17)+timedelta(minutes=30)]} 
+                                            else: 
+                                                leave_dict[u.date()]['leave_start'] = f'{leave_dict[u.date()]["leave_start"]}\n{leave_type}\n{u+timedelta(hours=8)+timedelta(minutes=30)}'
+                                                leave_dict[u.date()]['leave_amount'] = leave_dict[u.date()]["leave_amount"]+v['unit']
+                                                leave_lst_dict[u.date()]['start'] = leave_lst_dict[u.date()]['start'].append(u+timedelta(hours=8)+timedelta(minutes=30))
+                                                leave_lst_dict[u.date()]['end'] = leave_lst_dict[i.start.date()]['end'].append(u+timedelta(hours=17)+timedelta(minutes=30))
                             break
             #print(leave_dict)
-            leave_time_lst = [f"{leave_dict[i]['leave_start']}\nTotal for {leave_dict[i]['leave_amount']}[hr]" if i in leave_dict.keys() else '' for i in date_index]
-            leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]   
+            #print(leave_lst_dict)
+            leave_time_lst = [leave_dict[i]['leave_start'] if i in leave_dict.keys() else None for i in date_index]
+            #print(leave_time_lst)
+            leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]
+            #print(leave_amount_lst)
+
+            worktime_dict = {}
+            for i in date_index:
+                overlap = 0
+                if (in_dict.get(i) != None) and (out_dict.get(i) != None):
+                    if leave_lst_dict.get(i):
+                        for u in range(len(leave_lst_dict[i]['start'])):
+                            latest_start = max(in_dict[i], leave_lst_dict[i]['start'][u])
+                            earliest_end = min(out_dict[i], leave_lst_dict[i]['end'][u])
+                            delta = round((earliest_end - latest_start).total_seconds()/60/60,2)
+                            overlap += max(0, delta)
+                        worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60 - overlap
+                    else:
+                        worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
+            worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
             work_amount = round(sum(worktime_lst), 2)
             leave_amount = round(sum(leave_amount_lst), 2)
             required_amount = self.calendar.bdays_count().sum()*9

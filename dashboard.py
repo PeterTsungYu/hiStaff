@@ -694,121 +694,110 @@ def init_callbacks():
     # only the last 30 row could be editable
     # match certin string format
     r = re.compile('\d{2}:\d{2}')
-    @callback(
-        Output('check_datatable', 'data'),
-        [Input('check_datatable', 'data'),],
-        [State('check_datatable', 'data_previous'),]
-        )
-    def update_lastcells(data, data_previous):
-        #print(data)
-        #print(data_previous)
-        if data_previous is None:
-            return data
-        else:
-            for i in range(len(data)):
-                for col in ['checkin', 'checkout']:
-                    # input format regular expression
-                    if data[i][col] is not None:
-                        if (r.match(data[i][col]) is None):
-                            data[i][col] = None
-                        else:
-                            _hour = data[i][col][0:2]
-                            _minute = data[i][col][3:]
-                            #print(_hour, _minute)
-                            if int(_hour) <= 0 or int(_hour) >= 23 or int(_minute) < 0 or int(_minute) >= 59:
-                                data[i][col] = None
-                        #print(data[i][col])
-                    # Restrict Editable time to 31 days
-                    if i >= 31:
-                        #print(i, data[i][col], data_previous[i][col])
-                        data[i][col] = data_previous[i][col]
-                # check in <= checkout
-                if data[i]['checkin'] != None and data[i]['checkout'] != None:
-                    #print(data[i]['checkin'])
-                    #print(data[i]['checkout'])
-                    if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
-                        data[i]['checkin'] = data_previous[i]['checkin']
-                        data[i]['checkout'] = data_previous[i]['checkout']
-            return data
-
     # update the check table         
     @callback(
     [
-        Output('url', 'refresh'),
-        Output('url', 'href'),
-        Output('change_string', 'children'), 
+        #Output('check_datatable_div', 'children'),
+        Output('check_datatable', 'data'),
         ],
     [
-        Input('check_button', 'submit_n_clicks'),
+        Input('check_datatable', 'data'),
         ],
     [
+        State('check_datatable', 'data_previous'),
         State('url', 'search'),
         State('url', 'pathname'),
-        State('check_datatable', 'data'),
-        State('check_datatable', 'data_previous'),
+        Input('check_datepicker', 'start_date'),
+        Input('check_datepicker', 'end_date'),
         ],
-    prevent_initial_call=False,
+    prevent_initial_call=True,
     )
-    def update_check_data(submit_n_clicks, search, pathname, data, data_previous):
+    def update_check_data(data, data_previous, search, pathname, start_date, end_date):
         #print(data) # list of dictionaries of str or None
         #print(data_previous)
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        if not submit_n_clicks:
-            raise PreventUpdate
-        else:
-            if (data != None) and (data_previous) != None:
-                changes = {}
-                for i in range(len(data)):
-                    if data[i] != data_previous[i]:
-                        for col in ('checkin', 'checkout'):
-                            if data[i][col] != data_previous[i][col]:
-                                current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
-                                pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
-                                changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
-                print(changes)
-
-                for key, value in changes.items():
-                    #print(key, value)
-                    col = value['col']
-                    if 'checkin' in col:
-                        table = db.CheckIn
-                    elif 'checkout' in col:
-                        table = db.CheckOut
-                    pre = value['previous']
-                    cur = value['current']
-                    if (cur == None) and (pre == None):
-                        continue
-                    elif cur == None:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            return [False, f"{pathname}{search}", str(e),]
-                        #delete the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                        delete()
-                    elif pre == None:
-                        try:
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            return [False, f"{pathname}{search}", str(e),]
-                        # insert a row
-                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur))
+        
+        for i in range(len(data)):
+            for col in ['checkin', 'checkout']:
+                # input format regular expression
+                if data[i][col] is not None:
+                    if (r.match(data[i][col]) is None):
+                        data[i][col] = None
                     else:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                            #print(pre, cur)
-                        except Exception as e:
-                            return [False, f"{pathname}{search}", str(e),]
-                        # update the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                        update({"created_time": cur})
-            db.db_session.commit()
-            #refresh the page
-            return [True, f"{pathname}{search}", 'Succeed',]
+                        _hour = data[i][col][0:2]
+                        _minute = data[i][col][3:]
+                        #print(_hour, _minute)
+                        if int(_hour) <= 0 or int(_hour) >= 23 or int(_minute) < 0 or int(_minute) >= 59:
+                            data[i][col] = None
+                    #print(data[i][col])
+                # Restrict Editable time to 31 days
+                if i >= 31:
+                    #print(i, data[i][col], data_previous[i][col])
+                    data[i][col] = data_previous[i][col]
+            # check in <= checkout
+            if data[i]['checkin'] != None and data[i]['checkout'] != None:
+                #print(data[i]['checkin'])
+                #print(data[i]['checkout'])
+                if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
+                    data[i]['checkin'] = data_previous[i]['checkin']
+                    data[i]['checkout'] = data_previous[i]['checkout']
+
+        changes = {}
+        for i in range(len(data)):
+            if data[i] != data_previous[i]:
+                for col in ('checkin', 'checkout'):
+                    if data[i][col] != data_previous[i][col]:
+                        current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
+                        pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
+                        changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
+        print(changes)
+
+        for key, value in changes.items():
+            #print(key, value)
+            col = value['col']
+            if 'checkin' in col:
+                table = db.CheckIn
+            elif 'checkout' in col:
+                table = db.CheckOut
+            pre = value['previous']
+            cur = value['current']
+            if (cur == None) and (pre == None):
+                continue
+            elif cur == None:
+                try:
+                    pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                except Exception as e:
+                    print(e)
+                    #return [False, f"{pathname}{search}", str(e),]
+                #delete the row
+                db.db_session.query(table).\
+                filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                delete()
+            elif pre == None:
+                try:
+                    cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                except Exception as e:
+                    print(e)
+                    #return [False, f"{pathname}{search}", str(e),]
+                # insert a row
+                db.db_session.add(table(staff_name=staff.staff_name, created_time=cur))
+            else:
+                try:
+                    pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                    cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                    #print(pre, cur)
+                except Exception as e:
+                    print(e)
+                    #return [False, f"{pathname}{search}", str(e),]
+                # update the row
+                db.db_session.query(table).\
+                filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                update({"created_time": cur})
+        db.db_session.commit()
+        #check_table(pd.DataFrame.from_records(data))
+        check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+        return [check_df.to_dict('records')]
 
 
     # update index links
