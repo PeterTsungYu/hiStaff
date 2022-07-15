@@ -672,8 +672,8 @@ def init_callbacks():
         #print(f'{search} from datepicker_check_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        #print(start_date)
-        #print(end_date)
+        print(start_date)
+        print(end_date)
         check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
         workhour = sum(check_df['worktime[hr]'].iloc[:])
         leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
@@ -715,8 +715,9 @@ def init_callbacks():
                             _hour = data[i][col][0:2]
                             _minute = data[i][col][3:]
                             #print(_hour, _minute)
-                            if int(_hour) <= 0 or int(_hour) >= 23 or int(_minute) <= 0 or int(_minute) >= 59:
+                            if int(_hour) <= 0 or int(_hour) >= 23 or int(_minute) < 0 or int(_minute) >= 59:
                                 data[i][col] = None
+                        #print(data[i][col])
                     # Restrict Editable time to 31 days
                     if i >= 31:
                         #print(i, data[i][col], data_previous[i][col])
