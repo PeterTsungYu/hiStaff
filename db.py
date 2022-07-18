@@ -155,8 +155,8 @@ def get_Staff_profile_lst():
             Staff_profile_checklst[i].uuid = os.environ.get(Staff_profile_checklst[i].staff_name) 
             Staff_profile_lst.append(Staff_profile_checklst[i])
     return Staff_profile_lst
-
-
+# use alembic instead
+'''
 def init_db_all_tables():
     print(db_session())
     Staff_profile_lst = get_Staff_profile_lst()
@@ -169,7 +169,7 @@ def init_db_all_tables():
     #db_session.remove()
     config.logger.debug('Initialized Staff table')
     #config.logger.debug(db_session.query(Staffs).all())
-
+'''
 
 def update_staffs_table():
     print(db_session())
@@ -634,7 +634,7 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    init_db_all_tables()
+    #init_db_all_tables()
     update_staffs_table()
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
