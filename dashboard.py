@@ -426,15 +426,16 @@ def init_callbacks():
     @callback(
         Output('leave_quota_datatable_div', 'children'),
         [
-            Input('leave_type_radio', 'value'),
             Input('leave_table', 'data'),
             ],
         [
             State('url', 'search'),
             State('url', 'pathname'),
-            ]
+            ],
+        prevent_initial_call=True,
         )
-    def leave_quota_table(leave_type, leave_table, search, pathname):
+    def leave_quota_table(leave_table, search, pathname):
+        print('leave_quota_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         df_leave_quota = db.staffs_datatable_generator(staff).staffs_datatable()
@@ -477,8 +478,11 @@ def init_callbacks():
         if any(_arg == None for _arg in _lst):
             raise PreventUpdate
         else:
-            #print(leave_start)
-            leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+            print(leave_start)
+            try:
+                leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+            except:
+                leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M')
             for k,v in db.leaves_type.items():
                 if leave_type == v['type']:
                     _unit = v['unit']
@@ -497,7 +501,7 @@ def init_callbacks():
                 if reserved_amount > max:
                     reserved_amount = max
                 if reserved_amount > 1:
-                    leave_end = (leave_start.replace(day=leave_start.day+reserved_amount-1, hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
+                    leave_end = ((leave_start + timedelta(days=reserved_amount-1)).replace(hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     leave_end = (leave_start + timedelta(hours=_unit*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
             return leave_unit_children, max, [leave_end]
@@ -518,12 +522,16 @@ def init_callbacks():
             State('leave_start_datetime_picker', 'value'),
             State('leave_end', 'children'),
             State('reserved_amount_slider', 'value'),
-        ]
+        ],
     )
     def take_a_leave_to_db(submit_n_clicks, search, pathname, leave_type, leave_start, leave_end, leave_reserved):
+        print('take_a_leave_to_db')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff=db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+        try:
+            start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+        except:
+            start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M')
         # Yearly leave 
         leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff)
 
@@ -532,9 +540,15 @@ def init_callbacks():
             _lst = [leave_type, leave_start, leave_end, leave_reserved]
             if not any(_arg == None for _arg in _lst):
                 # compare with record_range
-                _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M:%S')
+                try:
+                    _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M:%S')
+                except:
+                    _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M')
                 _end = datetime.strptime(leave_end[0],'%Y-%m-%d %H:%M:%S')
-                _timerange_start = _start.strftime("%Y-%m-%d %H:%M:%S")
+                try:
+                    _timerange_start = _start.strftime("%Y-%m-%d %H:%M:%S")
+                except:
+                    _timerange_start = _start.strftime("%Y-%m-%d %H:%M")
                 _timerange_end = _end.strftime("%Y-%m-%d %H:%M:%S")
                 _leave_timerange = DateTimeRange(_timerange_start, _timerange_end)
                 _leave_daterange = pd.date_range(_start.date(), _end.date())
@@ -588,6 +602,7 @@ def init_callbacks():
                     db.db_session.commit()
                     
         leave_df = leave_table_generator.leave_dataframe()
+        print(leave_df)
         if not leave_df.empty:
             leave_table = dash_table.DataTable(
                 leave_df.to_dict('records'), 
@@ -616,9 +631,10 @@ def init_callbacks():
                             },
                 )
         else:
-            leave_msg = 'Empty leave_record'
-            leave_table = None
-        
+            leave_table = dash_table.DataTable(
+                leave_df.to_dict('records'), 
+                id='leave_table')
+        #print(leave_msg, leave_table)
         return [leave_msg], [leave_table]
 
 
@@ -637,6 +653,7 @@ def init_callbacks():
     prevent_initial_call=True,
     )
     def update_leave_data_after_del(data, search, data_previous):
+        print('update_leave_data_after_del')
         data_index = set(i['index'] for i in data)
         data_previous_index = set(i['index'] for i in data_previous)
         unmatched_set = data_previous_index.difference(data_index)
@@ -647,9 +664,31 @@ def init_callbacks():
         else:
             if (data != None) and (data_previous != None):
                 _del_index = unmatched_set.pop()
+                leave = db.db_session.query(db.Leaves).filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).scalar()
+                leave_type = leave.type
+                leave_reserved = leave.reserved
+                print(leave)
+                print(leave_type)
+                print(leave_reserved)
+
                 db.db_session.query(db.Leaves).\
                 filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).\
                 delete()
+
+                # update staff quota
+                for k,v in db.leaves_type.items():
+                    if leave_type == v['type']:
+                        _unit = v['unit']/8
+                        _type = k
+                        break
+                cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff.staff_name).scalar().__dict__.get(_type)
+                print(cur_quota)
+                updated_quota = cur_quota + leave_reserved*_unit
+                print(updated_quota)
+                db.db_session.query(db.Staffs).\
+                filter(db.Staffs.staff_name == staff.staff_name).\
+                update({f"{_type}": updated_quota})
+                
                 db.db_session.commit()
             #refresh the page
             return [data]
