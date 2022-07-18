@@ -496,7 +496,10 @@ def init_callbacks():
                 max = 5
                 if reserved_amount > max:
                     reserved_amount = max
-                leave_end = (leave_start.replace(day=leave_start.day+reserved_amount-1, hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
+                if reserved_amount > 1:
+                    leave_end = (leave_start.replace(day=leave_start.day+reserved_amount-1, hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    leave_end = (leave_start + timedelta(hours=_unit*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
             return leave_unit_children, max, [leave_end]
 
 
@@ -619,7 +622,7 @@ def init_callbacks():
         return [leave_msg], [leave_table]
 
 
-    # update the leave table         
+    # update the leave table after delete        
     @callback(
     [
         Output('leave_table', 'data'), 
@@ -633,19 +636,17 @@ def init_callbacks():
         ],
     prevent_initial_call=True,
     )
-    def update_leave_data(data, search, data_previous):
-        print(data)
-        print(data_previous)
+    def update_leave_data_after_del(data, search, data_previous):
+        data_index = set(i['index'] for i in data)
+        data_previous_index = set(i['index'] for i in data_previous)
+        unmatched_set = data_previous_index.difference(data_index)
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         if data == data_previous:
             raise PreventUpdate
         else:
             if (data != None) and (data_previous != None):
-                _del_index = data_previous[-1]['index']
-                for i in range(len(data)):
-                    if data[i]['index'] != data_previous[i]['index']:
-                        _del_index = int(data_previous[i]['index'])
+                _del_index = unmatched_set.pop()
                 db.db_session.query(db.Leaves).\
                 filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).\
                 delete()

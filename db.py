@@ -157,14 +157,13 @@ def get_Staff_profile_lst():
     return Staff_profile_lst
 
 
-def init_staffs_table():
+def init_db_all_tables():
     print(db_session())
     Staff_profile_lst = get_Staff_profile_lst()
     print(Staff_profile_lst)
 
-    if inspect(engine).has_table('staffs_table'):
-        db_session.query(Staffs).delete()
-    #Base.metadata.create_all(bind=engine)
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     db_session.add_all(Staff_profile_lst) # a way to insert many query
     db_session.commit()
     #db_session.remove()
@@ -275,7 +274,7 @@ def check_leave_calc(staff, start, end, date_index):
                                         leave_lst_dict[u.date()]['start'].append(u+timedelta(hours=8)+timedelta(minutes=30))
                                         leave_lst_dict[u.date()]['end'].append(u+timedelta(hours=17)+timedelta(minutes=30))
                     break
-    print(leave_dict)
+    #print(leave_dict)
     leave_time_lst = [leave_dict[i]['leave_start'] if i in leave_dict.keys() else None for i in date_index]
     #print(leave_time_lst)
     leave_amount_lst = [leave_dict[i]['leave_amount'] if i in leave_dict.keys() else 0 for i in date_index]
@@ -635,14 +634,11 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
-    get_Staff_profile_lst()
-    init_staffs_table()
+    init_db_all_tables()
     update_staffs_table()
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
     df = all_table_generator(year=2022, month=7).check_dataframe()
     print(df[df['date']=='diff[hr]'].to_dict('records'))
-    #print(Base.metadata)
     print(db_session())
     db_session.remove()
