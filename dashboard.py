@@ -60,7 +60,7 @@ def init_callbacks():
                         max_date_allowed=date(2100, 1, 25),
                         initial_visible_month=datetime.now().date(),
                         start_date=(datetime.now().date()  - pd.offsets.MonthBegin(1)).date(),
-                        end_date=datetime.now().date()
+                        end_date=datetime.now().date(),
     )
     check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
     change_string = html.Div(id='change_string')
@@ -89,7 +89,7 @@ def init_callbacks():
                             sort_mode="multi",
                             page_action="native",
                             page_current= 0,
-                            page_size= 10,
+                            page_size= 15,
                             style_table={'overflowX': 'auto','minWidth': '100%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
@@ -139,7 +139,7 @@ def init_callbacks():
         return datatable
 
     # leave form objs
-    leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1")
+    leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1", style={'height': '60px', 'width': '300px', 'font-size': "24px",},)
     leave_card = dbc.Card([
                     dbc.CardHeader("Leave Form"),
                     dbc.CardBody(
@@ -149,7 +149,7 @@ def init_callbacks():
                                     dbc.Card(
                                         dbc.CardBody(
                                             [
-                                                html.H5("Leave Type", className="card-title"),
+                                                html.H3("Leave Type", className="card-title"),
                                                 html.P(id='leave_unit'),
                                                 dcc.RadioItems(
                                                     id="leave_type_radio",
@@ -171,20 +171,20 @@ def init_callbacks():
                                 ],
                             ),
                             html.Br(),
-                            html.H5("Leave Start", className="card-title"),
+                            html.H2("Leave Start", className="card-title"),
                             leave_start_datetime_picker,
                             html.Br(),
                             html.Br(),
-                            html.H5("Reserved Amount", className="card-title"),
+                            html.H2("Reserved Amount", className="card-title"),
                             dcc.Slider(id="reserved_amount_slider", min=1, max=8, step=1, value=1),
                             html.Br(),
-                            html.H5("Leave End", className="card-title"),
-                            html.P(id='leave_end'),
+                            html.H2("Leave End", className="card-title"),
+                            html.H3(id='leave_end'),
                             html.Br(),
                             dcc.ConfirmDialogProvider(
-                                children=html.Button('Click to take a leave',),
+                                children=html.Button('Click to take a leave', style={'height': '60px', 'width': '300px', 'font-size': "24px",}),
                                 id='leave_button',
-                                message='Ready to submit your day-off request. Pls double make sure it.'
+                                message='Ready to submit your day-off request. Pls double make sure it.',
                             ),
                         ]
                     ),
@@ -205,7 +205,7 @@ def init_callbacks():
                 dbc.Card([
                     dbc.CardHeader("Yearly Leave Table"),
                     dbc.CardBody([
-                        html.P(id='leave_msg'),
+                        html.H3(id='leave_msg'),
                         html.Div(id='total_leave_datatable_div', style=table_style)
                     ])
                     ]), 
@@ -248,8 +248,8 @@ def init_callbacks():
                         dbc.CardBody([
                             check_datepicker,
                             check_datatable_div,
-                            change_string,
-                            check_button,
+                            #change_string,
+                            #check_button,
                         ])
                         ]), 
                         width=11),
@@ -725,10 +725,10 @@ def init_callbacks():
         return [
             check_table(check_df), 
             check_df.to_json(orient='split', date_format='iso'),
-            [html.Div(f"Working hours: {workhour} [hr]"),
-            html.Div(f"Leaving hours {leavehour} [hr]"), 
-            html.Div(f"Required hours: {required_hours} [hr]"), 
-            html.Div(f"Difference: {round(leavehour + workhour - required_hours,2)} [hr]"),],
+            [html.H3(f"Working hours:   {workhour} [hr]"),
+            html.H3(f"Leaving hours     {leavehour} [hr]"), 
+            html.H3(f"Required hours:   {required_hours} [hr]"), 
+            html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),],
         ]
 
 
@@ -823,7 +823,7 @@ def init_callbacks():
                     print(e)
                     #return [False, f"{pathname}{search}", str(e),]
                 # insert a row
-                db.db_session.add(table(staff_name=staff.staff_name, created_time=cur))
+                db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=True))
             else:
                 try:
                     pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
@@ -835,7 +835,7 @@ def init_callbacks():
                 # update the row
                 db.db_session.query(table).\
                 filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                update({"created_time": cur})
+                update({"created_time": cur, "revised": True})
         db.db_session.commit()
         #check_table(pd.DataFrame.from_records(data))
         check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
