@@ -137,6 +137,7 @@ Staffs.checkin_time = relationship("CheckIn", backref="many_staff")
 Staffs.checkout_time = relationship("CheckOut", backref="many_staff")
 Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 
+# create a lst sourced from .env 
 def get_Staff_profile_lst():
     # staff list and uuid
     Staff_profile_checklst = [ #temp lst for checking uuid
@@ -155,6 +156,8 @@ def get_Staff_profile_lst():
             Staff_profile_checklst[i].uuid = os.environ.get(Staff_profile_checklst[i].staff_name) 
             Staff_profile_lst.append(Staff_profile_checklst[i])
     return Staff_profile_lst
+
+    
 # use alembic instead
 '''
 def init_db_all_tables():
@@ -171,6 +174,7 @@ def init_db_all_tables():
     #config.logger.debug(db_session.query(Staffs).all())
 '''
 
+# To update (del or add) staffs to the table
 def update_staffs_table():
     print(db_session())
     Staff_profile_lst = get_Staff_profile_lst()
@@ -199,6 +203,27 @@ def update_staffs_table():
     config.logger.debug('Staff table is up to date')
     #config.logger.debug(db_session.query(Staffs).all())
 
+
+# reset whole staff table
+def reset_staffs_table():
+    if inspect(engine).has_table('staffs_table'):
+        Base.metadata.drop_all(bind=engine, tables=[Staffs.__table__])
+        #Staffs.__table__.drop(engine)
+    Staff_profile_lst = get_Staff_profile_lst()
+    Base.metadata.create_all(bind=engine, tables=[Staffs.__table__])
+    db_session.add_all(Staff_profile_lst)
+    db_session.commit()
+    config.logger.debug('Reset staffs table')
+
+
+# reset a quota in a staff
+def reset_staff_quota(staff_name:str, quota_name:str, updated_quota: float):
+    db_session.query(Staffs).\
+    filter(Staffs.staff_name == staff_name).\
+    update({quota_name: updated_quota})
+    db_session.commit()
+    config.logger.debug('Reset staff quota')
+    
 
 class staffs_datatable_generator:
     def __init__(self, staff):
@@ -634,11 +659,13 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    #init_db_all_tables()
-    update_staffs_table()
+    #reset_staffs_table()
+    #update_staffs_table()
+    reset_staff_quota(staff_name='Johnson', quota_name='Official_Leave', updated_quota=365-0.25)
+    
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()
-    df = all_table_generator(year=2022, month=7).check_dataframe()
-    print(df[df['date']=='diff[hr]'].to_dict('records'))
-    print(db_session())
+    #df = all_table_generator(year=2022, month=7).check_dataframe()
+    #print(df[df['date']=='diff[hr]'].to_dict('records'))
+    #print(db_session())
     db_session.remove()
