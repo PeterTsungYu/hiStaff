@@ -355,7 +355,7 @@ class season_table_generator:
                 work_amount = round(sum(worktime_lst), 2)
                 leave_amount = round(sum(leave_amount_lst), 2)
                 required_amount = calendar.bdays_count().sum()*9
-                diff = (work_amount + leave_amount) - required_amount
+                diff = round((work_amount + leave_amount) - required_amount,2)
                 momthly_lst[staff.staff_name] = (work_amount, leave_amount, required_amount, diff)
             monthly_df = pd.DataFrame(data={i: momthly_lst[i] for i in self.staff_name_lst}, index=('work_amount[hr]', 'leave_amount[hr]', 'required_amount[hr]', 'diff[hr]')).rename_axis(f'month_{self.month_lst[_season]}').reset_index()
             df_lst.append(monthly_df)
@@ -398,7 +398,7 @@ class all_table_generator:
             work_amount = round(sum(worktime_lst), 2)
             leave_amount = round(sum(leave_amount_lst), 2)
             required_amount = self.calendar.bdays_count().sum()*9
-            diff = (work_amount + leave_amount) - required_amount
+            diff = round((work_amount + leave_amount) - required_amount,2)
 
             in_out_lst = [f'{in_lst[i]} {out_lst[i]} \n{leave_time_lst[i]}' for i in range(len(date_index))]
             df = pd.DataFrame(data={f'{staff.staff_name}':in_out_lst})

@@ -53,7 +53,7 @@ def init_callbacks():
     }
 
     # dash components
-    check_h1 = html.H1(id='check_h1')
+    check_h2 = html.H2(id='check_h2')
     check_datepicker = dcc.DatePickerRange(
                         id='check_datepicker',
                         min_date_allowed=date(1992, 1, 25),
@@ -137,6 +137,7 @@ def init_callbacks():
                     dbc.CardHeader("Leave Form"),
                     dbc.CardBody(
                         [
+                            check_h2,
                             dbc.CardGroup(
                                 [
                                     dbc.Card(
@@ -147,7 +148,7 @@ def init_callbacks():
                                                 dcc.RadioItems(
                                                     id="leave_type_radio",
                                                     options={v['type']:k for (k,v) in db.leaves_type.items()},
-                                                    style={'width':'70%', 'font-size': 26}
+                                                    style={'width':'80%', 'font-size': 18}
                                                 ),
                                             ]
                                         ),
@@ -224,7 +225,6 @@ def init_callbacks():
     ])]
 
     leave_form = [html.Div([
-        check_h1,
         leave_cards,
         html.Br(),
         total_leave_datatable_cards,
@@ -238,7 +238,7 @@ def init_callbacks():
                     dbc.Card([
                         dbc.CardHeader("Datepicker Check Table"),
                         dbc.CardBody([
-                            check_h1,
+                            check_h2,
                             check_datepicker,
                             html.Div(id='check_datatable_div', style=table_style),
                             html.Br(),
@@ -288,7 +288,6 @@ def init_callbacks():
     ])]
 
     my_check_layout= [html.Div([
-        check_h1,
         dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
@@ -296,6 +295,7 @@ def init_callbacks():
                     dbc.Card([
                         dbc.CardHeader("Monthly All Check Table"),
                         dbc.CardBody([
+                            check_h2,
                             html.Div([year_dropdown, month_dropdown], style={"width": "25%"}),
                             html.Br(),
                             html.Div(id='mycheck_datatable_div', style=table_style)
@@ -309,7 +309,6 @@ def init_callbacks():
     ])]
 
     season_check_layout= [html.Div([
-        check_h1,
         dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
@@ -317,6 +316,7 @@ def init_callbacks():
                     dbc.Card([
                         dbc.CardHeader("Seasonal Check Table"),
                         dbc.CardBody([
+                            check_h2,
                             html.Div([year_dropdown, season_dropdown], style={"width": "25%"}),
                             html.Br(),
                             html.Div(id='season_1st_datatable_div', style=table_style),
@@ -371,8 +371,8 @@ def init_callbacks():
                     style_table={'overflowX': 'auto','minWidth': '100%',},
                     style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                                'fontSize':26, 'font-family':'sans-serif'
+                                'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
+                                'fontSize':16, 'font-family':'sans-serif'
                                 },
                     style_data={                # overflow cells' content into multiple lines
                             'whiteSpace': 'normal',
@@ -416,8 +416,8 @@ def init_callbacks():
                 style_table={'overflowX': 'auto','minWidth': '100%',},
                 style_cell={ 
                             'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
-                            'fontSize':26, 'font-family':'sans-serif'
+                            'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
+                            'fontSize':16, 'font-family':'sans-serif'
                             },
                 style_data={                # overflow cells' content into multiple lines
                     'whiteSpace': 'normal',
@@ -875,85 +875,6 @@ def init_callbacks():
                 changes = {}
                 return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records'), changes]
 
-    '''
-    @callback(
-        [
-            Output('revision_string', 'children'),
-            #Output('check_datatable_div', 'children'),
-            ],
-        Input('check_button', 'submit_n_clicks'),
-        State('check_revision_reason', 'value'),
-        State('check_datatable', 'active_cell'),
-        State('check_datatable', 'data'),
-        State('check_changes_store', 'data'),
-        State('url', 'search'),
-        State('check_datepicker', 'start_date'),
-        State('check_datepicker', 'end_date'),
-        prevent_initial_call=True,
-        )
-    def click_to_db_revision(submit_n_clicks, reason, active_cell, data, changes, search, start_date, end_date):
-        print('click_to_db_revision')
-        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
-        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        #print(changes)
-        #print(reason)
-        #print(active_cell)
-        if not submit_n_clicks:
-            raise PreventUpdate
-        if not reason:
-            return [f"Fail. Pls note your reason.", data]
-        elif not (active_cell and active_cell['column_id'] not in ['checkin', 'checkout']):
-            return [f"Fail. Select a checkin/checkout cell for revision.", data]
-        else:
-            entry = data[active_cell['row']][active_cell['column_id']]
-            for key, value in changes.items():
-                #print(key, value)
-                col = value['col']
-                if 'checkin' in col:
-                    table = db.CheckIn
-                elif 'checkout' in col:
-                    table = db.CheckOut
-                pre = value['previous']
-                cur = value['current']
-                if (cur == None) and (pre == None):
-                    continue
-                elif cur == None:
-                    try:
-                        pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                    except Exception as e:
-                        print(e)
-                        #return [False, f"{pathname}{search}", str(e),]
-                    #delete the row
-                    db.db_session.query(table).\
-                    filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                    delete()
-                elif pre == None:
-                    try:
-                        cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                    except Exception as e:
-                        print(e)
-                        #return [False, f"{pathname}{search}", str(e),]
-                    # insert a row
-                    db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason))
-                else:
-                    try:
-                        pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                        cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                        #print(pre, cur)
-                    except Exception as e:
-                        print(e)
-                        #return [False, f"{pathname}{search}", str(e),]
-                    # update the row
-                    db.db_session.query(table).\
-                    filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                    update({"created_time": cur, "revised": reason})
-            db.db_session.commit()
-            #check_table(pd.DataFrame.from_records(data))
-            check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
-
-            return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records')]
-'''
-
 
     # update index links
     @callback(
@@ -1012,7 +933,7 @@ def init_callbacks():
         elif 'leave_form' in check_type:
             pass
         
-        check_h1.children = str(staff.staff_name) + check_type if staff else 'All' + check_type
+        check_h2.children = str(staff.staff_name) + check_type if staff else 'All' + check_type
         #home_link.children = staff + '/Sweet Home'
         #home_link.href = url_prefix + search
 
