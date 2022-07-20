@@ -1,6 +1,6 @@
 # library
 from distutils.log import debug
-from dash import Dash, dcc, html, callback, Input, Output, dash_table, State
+from dash import Dash, dcc, html, callback, Input, Output, dash_table, State, ctx
 from dash.dash_table import DataTable
 from dash.exceptions import PreventUpdate
 from urllib.parse import urlparse, unquote, parse_qsl
@@ -62,13 +62,6 @@ def init_callbacks():
                         start_date=(datetime.now().date()  - pd.offsets.MonthBegin(1)).date(),
                         end_date=datetime.now().date(),
     )
-    check_datatable_div = html.Div(id='check_datatable_div', style=table_style)
-    change_string = html.Div(id='change_string')
-    check_button = dcc.ConfirmDialogProvider(
-        children=html.Button('Click to edit the table entry',),
-        id='check_button',
-        message='Ready to submit your change to your working time data. Pls double make sure it.'
-        )
     check_link = dcc.Link(id='check_link', href=f'{url_prefix}/')
     home_link = dcc.Link(id='home_link', href=f'{url_prefix}/')
     index_dropdown = dcc.Dropdown(['check', 'Season'], 'check', id='index_dropdown')
@@ -84,17 +77,17 @@ def init_callbacks():
                             columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
                             data=check_df.to_dict('records'),
                             editable=True,
-                            filter_action="native",
-                            sort_action="native",
-                            sort_mode="multi",
+                            #filter_action="native",
+                            #sort_action="native",
+                            #sort_mode="multi",
                             page_action="native",
                             page_current= 0,
                             page_size= 15,
-                            style_table={'overflowX': 'auto','minWidth': '100%',},
+                            style_table={'overflowX': 'auto','minWidth': '50%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '200px', 'maxWidth': '220px', 'width': '200px',
-                                'fontSize':26, 'font-family':'sans-serif'
+                                'minWidth': '120px', 'maxWidth': '150px', 'width': '120px',
+                                'fontSize':18, 'font-family':'sans-serif'
                                 },
                             style_data={                # overflow cells' content into multiple lines
                                 'whiteSpace': 'normal',
@@ -238,7 +231,6 @@ def init_callbacks():
     ])]
 
     check_layout = [html.Div([
-        check_h1,
         dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
@@ -246,10 +238,26 @@ def init_callbacks():
                     dbc.Card([
                         dbc.CardHeader("Datepicker Check Table"),
                         dbc.CardBody([
+                            check_h1,
                             check_datepicker,
-                            check_datatable_div,
-                            #change_string,
-                            #check_button,
+                            html.Div(id='check_datatable_div', style=table_style),
+                            html.Br(),
+                            html.Br(),
+                            html.H3(id='change_string'),
+                            dcc.Input(
+                                id='check_revision_reason', 
+                                type='text',
+                                required=True,
+                                placeholder="Input your revision reason",
+                                style={'height': '60px', 'font-size': "22px",},
+                                ),
+                            html.Br(),
+                            html.Br(),
+                            dcc.ConfirmDialogProvider(
+                                children=html.Button('Click to revise a Checkin/Checkout entry', style={'height': '60px', 'font-size': "18px",}),
+                                id='check_button',
+                                message='Ready to submit your change to your working time data. Pls double make sure it.'
+                                ),
                         ])
                         ]), 
                         width=11),
@@ -257,11 +265,13 @@ def init_callbacks():
             ],
             justify="center"
         ),
+        html.Br(),
         dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
                 dbc.Col(
                     dbc.Card([
+                        dbc.CardHeader("Personal Summary"),
                         dbc.CardBody([
                             html.Div(id='sum_string'),
                         ])
@@ -738,108 +748,211 @@ def init_callbacks():
     # update the check table         
     @callback(
     [
-        #Output('check_datatable_div', 'children'),
+        Output('change_string', 'children'),
         Output('check_datatable', 'data'),
+        Output('check_changes_store', 'data'),
         ],
     [
         Input('check_datatable', 'data'),
+        Input('check_button', 'submit_n_clicks'),
         ],
     [
         State('check_datatable', 'data_previous'),
+        State('check_datatable', 'active_cell'),
+        State('check_revision_reason', 'value'),
         State('url', 'search'),
-        State('url', 'pathname'),
-        Input('check_datepicker', 'start_date'),
-        Input('check_datepicker', 'end_date'),
+        State('check_datepicker', 'start_date'),
+        State('check_datepicker', 'end_date'),
+        State('check_changes_store', 'data'),
         ],
-    prevent_initial_call=True,
     )
-    def update_check_data(data, data_previous, search, pathname, start_date, end_date):
+    def update_check_data(data, submit_n_clicks, data_previous, active_cell, reason, search, start_date, end_date, changes):
         print('update_check_data')
-        #print(data) # list of dictionaries of str or None
-        #print(data_previous)
+        print(active_cell)
+        print(ctx.triggered_id)
+        if ctx.triggered_id == 'check_datatable':
+            if not (data and data_previous):
+                raise PreventUpdate
+            #print(data) # list of dictionaries of str or None
+            #print(data_previous)
+            
+            for i in range(len(data)):
+                for col in ['checkin', 'checkout']:
+                    # input format regular expression
+                    if data[i][col] is not None:
+                        if (r.match(data[i][col]) is None):
+                            data[i][col] = None
+                        else:
+                            _hour = data[i][col][0:2]
+                            _minute = data[i][col][3:]
+                            #print(_hour, _minute)
+                            if int(_hour) <= 0 or int(_hour) > 23 or int(_minute) < 0 or int(_minute) > 59:
+                                data[i][col] = None
+                        #print(data[i][col])
+                    # Restrict Editable time to 31 days
+                    if i >= 31:
+                        #print(i, data[i][col], data_previous[i][col])
+                        data[i][col] = data_previous[i][col]
+                # check in <= checkout
+                if data[i]['checkin'] != None and data[i]['checkout'] != None:
+                    #print(data[i]['checkin'])
+                    #print(data[i]['checkout'])
+                    if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
+                        data[i]['checkin'] = data_previous[i]['checkin']
+                        data[i]['checkout'] = data_previous[i]['checkout']
+
+            changes = {}
+            for i in range(len(data)):
+                if data[i] != data_previous[i]:
+                    for col in ('checkin', 'checkout'):
+                        if data[i][col] != data_previous[i][col]:
+                            current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
+                            pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
+                            changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
+            print(changes)
+            entry = data[active_cell['row']][active_cell['column_id']]
+
+            return [f"Select {active_cell['column_id']} @ {data[active_cell['row']]['date']}. Revise as {entry}", data, changes]
+        
+        elif ctx.triggered_id == 'check_button':
+            _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+            staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
+            #print(changes)
+            #print(reason)
+            #print(active_cell)
+            if not submit_n_clicks:
+                raise PreventUpdate
+            if not reason:
+                return [f"Fail. Pls note your reason.", data]
+            elif not (active_cell and active_cell['column_id'] in ['checkin', 'checkout']):
+                return [f"Fail. Select a checkin/checkout cell for revision.", data]
+            else:
+                entry = data[active_cell['row']][active_cell['column_id']]
+                for key, value in changes.items():
+                    #print(key, value)
+                    col = value['col']
+                    if 'checkin' in col:
+                        table = db.CheckIn
+                    elif 'checkout' in col:
+                        table = db.CheckOut
+                    pre = value['previous']
+                    cur = value['current']
+                    if (cur == None) and (pre == None):
+                        continue
+                    elif cur == None:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                        except Exception as e:
+                            print(e)
+                            #return [False, f"{pathname}{search}", str(e),]
+                        #delete the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                        delete()
+                    elif pre == None:
+                        try:
+                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                        except Exception as e:
+                            print(e)
+                            #return [False, f"{pathname}{search}", str(e),]
+                        # insert a row
+                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason))
+                    else:
+                        try:
+                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                            #print(pre, cur)
+                        except Exception as e:
+                            print(e)
+                            #return [False, f"{pathname}{search}", str(e),]
+                        # update the row
+                        db.db_session.query(table).\
+                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                        update({"created_time": cur, "revised": reason})
+                db.db_session.commit()
+                #check_table(pd.DataFrame.from_records(data))
+                check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+                changes = {}
+                return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records'), changes]
+
+    '''
+    @callback(
+        [
+            Output('revision_string', 'children'),
+            #Output('check_datatable_div', 'children'),
+            ],
+        Input('check_button', 'submit_n_clicks'),
+        State('check_revision_reason', 'value'),
+        State('check_datatable', 'active_cell'),
+        State('check_datatable', 'data'),
+        State('check_changes_store', 'data'),
+        State('url', 'search'),
+        State('check_datepicker', 'start_date'),
+        State('check_datepicker', 'end_date'),
+        prevent_initial_call=True,
+        )
+    def click_to_db_revision(submit_n_clicks, reason, active_cell, data, changes, search, start_date, end_date):
+        print('click_to_db_revision')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        
-        for i in range(len(data)):
-            for col in ['checkin', 'checkout']:
-                # input format regular expression
-                if data[i][col] is not None:
-                    if (r.match(data[i][col]) is None):
-                        data[i][col] = None
-                    else:
-                        _hour = data[i][col][0:2]
-                        _minute = data[i][col][3:]
-                        #print(_hour, _minute)
-                        if int(_hour) <= 0 or int(_hour) >= 23 or int(_minute) < 0 or int(_minute) >= 59:
-                            data[i][col] = None
-                    #print(data[i][col])
-                # Restrict Editable time to 31 days
-                if i >= 31:
-                    #print(i, data[i][col], data_previous[i][col])
-                    data[i][col] = data_previous[i][col]
-            # check in <= checkout
-            if data[i]['checkin'] != None and data[i]['checkout'] != None:
-                #print(data[i]['checkin'])
-                #print(data[i]['checkout'])
-                if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
-                    data[i]['checkin'] = data_previous[i]['checkin']
-                    data[i]['checkout'] = data_previous[i]['checkout']
+        #print(changes)
+        #print(reason)
+        #print(active_cell)
+        if not submit_n_clicks:
+            raise PreventUpdate
+        if not reason:
+            return [f"Fail. Pls note your reason.", data]
+        elif not (active_cell and active_cell['column_id'] not in ['checkin', 'checkout']):
+            return [f"Fail. Select a checkin/checkout cell for revision.", data]
+        else:
+            entry = data[active_cell['row']][active_cell['column_id']]
+            for key, value in changes.items():
+                #print(key, value)
+                col = value['col']
+                if 'checkin' in col:
+                    table = db.CheckIn
+                elif 'checkout' in col:
+                    table = db.CheckOut
+                pre = value['previous']
+                cur = value['current']
+                if (cur == None) and (pre == None):
+                    continue
+                elif cur == None:
+                    try:
+                        pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                    except Exception as e:
+                        print(e)
+                        #return [False, f"{pathname}{search}", str(e),]
+                    #delete the row
+                    db.db_session.query(table).\
+                    filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                    delete()
+                elif pre == None:
+                    try:
+                        cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                    except Exception as e:
+                        print(e)
+                        #return [False, f"{pathname}{search}", str(e),]
+                    # insert a row
+                    db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason))
+                else:
+                    try:
+                        pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
+                        cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
+                        #print(pre, cur)
+                    except Exception as e:
+                        print(e)
+                        #return [False, f"{pathname}{search}", str(e),]
+                    # update the row
+                    db.db_session.query(table).\
+                    filter(table.staff_name == staff.staff_name, table.created_time == pre).\
+                    update({"created_time": cur, "revised": reason})
+            db.db_session.commit()
+            #check_table(pd.DataFrame.from_records(data))
+            check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
 
-        changes = {}
-        for i in range(len(data)):
-            if data[i] != data_previous[i]:
-                for col in ('checkin', 'checkout'):
-                    if data[i][col] != data_previous[i][col]:
-                        current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
-                        pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
-                        changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
-        print(changes)
-
-        for key, value in changes.items():
-            #print(key, value)
-            col = value['col']
-            if 'checkin' in col:
-                table = db.CheckIn
-            elif 'checkout' in col:
-                table = db.CheckOut
-            pre = value['previous']
-            cur = value['current']
-            if (cur == None) and (pre == None):
-                continue
-            elif cur == None:
-                try:
-                    pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                except Exception as e:
-                    print(e)
-                    #return [False, f"{pathname}{search}", str(e),]
-                #delete the row
-                db.db_session.query(table).\
-                filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                delete()
-            elif pre == None:
-                try:
-                    cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                except Exception as e:
-                    print(e)
-                    #return [False, f"{pathname}{search}", str(e),]
-                # insert a row
-                db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=True))
-            else:
-                try:
-                    pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                    cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                    #print(pre, cur)
-                except Exception as e:
-                    print(e)
-                    #return [False, f"{pathname}{search}", str(e),]
-                # update the row
-                db.db_session.query(table).\
-                filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                update({"created_time": cur, "revised": True})
-        db.db_session.commit()
-        #check_table(pd.DataFrame.from_records(data))
-        check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
-        return [check_df.to_dict('records')]
+            return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records')]
+'''
 
 
     # update index links

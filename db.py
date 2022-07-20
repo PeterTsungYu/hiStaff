@@ -73,7 +73,7 @@ class CheckIn(Base):
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
     check_place = Column(String, default='None')
-    revised = Column(Boolean, default=False)
+    revised = Column(String, default='None')
     
     def __repr__(self):
         return f'<CheckIn {self.id!r}>'
@@ -84,7 +84,7 @@ class CheckOut(Base):
     staff_name = Column(String, ForeignKey('staffs_table.staff_name'))
     created_time = Column(DateTime, default=datetime.now())
     check_place = Column(String, default='None')
-    revised = Column(Boolean, default=False)
+    revised = Column(String, default='None')
     def __repr__(self):
         return f'<CheckOut {self.id!r}>'
 
