@@ -68,7 +68,7 @@ def init_callbacks():
     month_dropdown = dcc.Dropdown(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], datetime.now().strftime("%b"), id='month_dropdown', placeholder="Select A Month",)
     year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown', placeholder="Select A Year",)
     season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
-    index_link = dcc.Link(id='index_link', href='')
+    check_dropdown = dcc.Dropdown(['Monthly Report', 'CheckIn Report', 'CheckOut Report'], 'Monthly Report', id='check_dropdown', placeholder="Report",)
 
     def check_table(check_df):
         #print(check_df.columns)
@@ -223,13 +223,6 @@ def init_callbacks():
 
     
     # dash layouts
-    index_page = [html.Div([
-        index_dropdown,
-        html.Br(),
-        index_link,
-        personal_data_store,
-    ])]
-
     leave_form = [html.Div([
         leave_cards,
         html.Br(),
@@ -295,6 +288,21 @@ def init_callbacks():
 
     my_check_layout= [html.Div([
         dbc.Row(
+            [   
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        #dbc.CardHeader("Index"),
+                        dbc.CardBody([
+                            dcc.Link('Go to Seasonal Report', id='link_season_check_all', href='/hiStaff_dashapp/season_check_all'),
+                        ])
+                        ]), 
+                        width=11),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+            ),
+        dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
                 dbc.Col(
@@ -302,7 +310,7 @@ def init_callbacks():
                         dbc.CardHeader("Monthly All Check Table"),
                         dbc.CardBody([
                             check_h2,
-                            html.Div([year_dropdown, month_dropdown], style={"width": "25%"}),
+                            html.Div([year_dropdown, month_dropdown, check_dropdown], style={"width": "25%"}),
                             html.Br(),
                             html.Div(id='mycheck_datatable_div', style=table_style)
                         ])
@@ -315,6 +323,21 @@ def init_callbacks():
     ])]
 
     season_check_layout= [html.Div([
+        dbc.Row(
+            [   
+                dbc.Col(html.Div(), width='auto'),
+                dbc.Col(
+                    dbc.Card([
+                        #dbc.CardHeader("Index"),
+                        dbc.CardBody([
+                            dcc.Link('Go to Check Report', id='link_date_check_all', href='/hiStaff_dashapp/date_check_all'),
+                        ])
+                        ]), 
+                        width=11),
+                dbc.Col(html.Div(), width='auto'),
+            ],
+            justify="center"
+            ),
         dbc.Row(
             [
                 dbc.Col(html.Div(), width='auto'),
@@ -388,54 +411,57 @@ def init_callbacks():
                                 'backgroundColor': '#0074D9',
                                 'color': 'white'
                                 },
+                    export_format='xlsx',
+                    export_headers='display',
                     )
                 table_lst.append(table)
             return table_lst
 
-    # month and year picker for check_table
+    # /date_check_all
     @callback(
-        [
-            Output('mycheck_datatable_div', 'children'),
-            ],
+        Output('mycheck_datatable_div', 'children'),
         [
             Input('year_dropdown', 'value'),
             Input('month_dropdown', 'value'),
+            Input('check_dropdown', 'value'),
             ],
-        [
-            State('url', 'search'),
-            State('url', 'pathname'),
-            ]
         )
-    def mypicker_check_table(year, month, search, pathname):
+    def mypicker_check_table(year, month, check_dropdown):
         #print(int(datetime.strptime(month, "%b").month))
-        if 'date_check_all' in pathname:
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
+        if check_dropdown == 'Monthly Report':
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
-            all_table = dash_table.DataTable(
-                all_check_df.to_dict('records'), 
-                [{"name": i, "id": i} for i in all_check_df.columns], 
-                id='all_table',
-                filter_action="native",
-                page_action="native",
-                page_current= 0,
-                page_size= 20,
-                style_table={'overflowX': 'auto','minWidth': '100%',},
-                style_cell={ 
-                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
-                            'fontSize':16, 'font-family':'sans-serif'
-                            },
-                style_data={                # overflow cells' content into multiple lines
-                    'whiteSpace': 'normal',
-                    'height': 'auto'
-                    },
-                style_header={
-                            'backgroundColor': '#0074D9',
-                            'color': 'white'
-                            },
-                )
+        elif check_dropdown == 'CheckIn Report':
+            all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_in_out_dataframe('CheckIn')
+        elif check_dropdown == 'CheckOut Report':
+            all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_in_out_dataframe('CheckOut')
 
-        return [all_table]
+        all_table = dash_table.DataTable(
+            all_check_df.to_dict('records'), 
+            [{"name": i, "id": i} for i in all_check_df.columns], 
+            id='all_table',
+            filter_action="native",
+            page_action="native",
+            page_current= 0,
+            page_size= 20,
+            style_table={'overflowX': 'auto','minWidth': '100%',},
+            style_cell={ 
+                        'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                        'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
+                        'fontSize':16, 'font-family':'sans-serif'
+                        },
+            style_data={                # overflow cells' content into multiple lines
+                'whiteSpace': 'normal',
+                'height': 'auto'
+                },
+            style_header={
+                        'backgroundColor': '#0074D9',
+                        'color': 'white'
+                        },
+            export_format='xlsx',
+            export_headers='display',
+            )
+        return all_table
 
 
     # leave_quota init
@@ -911,27 +937,6 @@ def init_callbacks():
                 check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
                 changes = {}
                 return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records'), changes]
-
-
-    # update index links
-    @callback(
-        [
-            Output('index_link', 'children'),
-            Output('index_link', 'href'),
-            ],
-        [
-            Input('index_dropdown', 'value'),
-            Input('url', 'search'),
-            ]
-        )
-    def index_linking(value, search):
-        print(f'{search} from index_linking')
-        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
-        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        children = staff.staff_name + '/' + value
-        href = url_prefix + '/' + value + search 
-        config.logging.debug(href)
-        return children, href
     
 
     # route to check_layout / index_page / leave_form
@@ -984,6 +989,4 @@ def init_callbacks():
             return season_check_layout
         elif check_type == '/leave_form':
             return leave_form
-        else:
-            return index_page
         # You could also return a 404 "URL not found" page here

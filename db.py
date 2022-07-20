@@ -374,7 +374,8 @@ class season_table_generator:
                 _seasonal_dict_temp[k].append(v)
         _seasonal_dict = {}
         for k,v in _seasonal_dict_temp.items():
-            _seasonal_dict[k] = np.array(v).sum(axis=0)
+            _seasonal_dict[k] = [round(i,2) for i in np.array(v).sum(axis=0)]
+            #print(_seasonal_dict[k], type(_seasonal_dict[k]))
         seasonal_df = pd.DataFrame(data=_seasonal_dict, index=('Total_work_amount[hr]', 'Total_leave_amount[hr]', 'Total_required_amount[hr]', 'Total_diff[hr]')).rename_axis(f'Seasonal Summary').reset_index()
         #print(seasonal_df)
         df_lst.append(seasonal_df)
@@ -386,7 +387,23 @@ class all_table_generator:
     def __init__(self, year, month):
         self.calendar=hiCalendar(start = datetime(year, month, 1), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
-    
+
+    def check_in_out_dataframe(self, table_name):
+        if table_name == 'CheckIn':
+            table = CheckIn
+        elif table_name == 'CheckOut':
+            table = CheckOut
+        start = self.calendar.start.date()
+        end = self.calendar.end
+
+        check_dict = {'staff_name': [], 'created_time': [], 'check_place': [], 'revised': []}
+        for entry in db_session.query(table).all():
+            if start <= entry.created_time.date() <= end:
+                for k in check_dict.keys():
+                    check_dict[k].append(entry.__dict__.get(k))
+        return pd.DataFrame(data=check_dict)
+
+
     def check_dataframe(self):
         all_check_lst = []
         start = self.calendar.start.date()
