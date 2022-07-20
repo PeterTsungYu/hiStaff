@@ -176,6 +176,7 @@ def init_callbacks():
                             html.H4(id='leave_end'),
                             html.Br(),
                             html.Div(id='leave_entry'),
+                            html.P(id='leave_msg'),
                             dcc.ConfirmDialogProvider(
                                 children=html.Button('Click to take a leave', style={'height': '60px', 'font-size': "20px",}),
                                 id='leave_button',
@@ -200,8 +201,6 @@ def init_callbacks():
                 dbc.Card([
                     dbc.CardHeader("Yearly Leave Table"),
                     dbc.CardBody([
-                        html.P(id='leave_msg'),
-                        html.Br(),
                         html.H4("Leave Datatable: Future", className="card-title"),
                         html.Div(id='total_leave_datatable_future_div', style=table_style),
                         html.Br(),
@@ -427,6 +426,9 @@ def init_callbacks():
             ],
         )
     def mypicker_check_table(year, month, check_dropdown):
+        _lst = [year, month, check_dropdown]
+        if any(_arg == None for _arg in _lst):
+            raise PreventUpdate
         #print(int(datetime.strptime(month, "%b").month))
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
         if check_dropdown == 'Monthly Report':
@@ -445,33 +447,44 @@ def init_callbacks():
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).leave_dataframe()
             id = 'monthly_all_leave_dataframe'
             row_deletable = True
+        else:
+            all_check_df = pd.DataFrame()
+            id = 'monthly_all_empty'
+            row_deletable = False
 
-        all_table = dash_table.DataTable(
-            all_check_df.to_dict('records'), 
-            [{"name": i, "id": i} for i in all_check_df.columns], 
-            id=id,
-            filter_action="native",
-            page_action="native",
-            page_current= 0,
-            page_size= 20,
-            row_deletable=row_deletable,
-            style_table={'overflowX': 'auto','minWidth': '100%',},
-            style_cell={ 
-                        'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                        'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
-                        'fontSize':16, 'font-family':'sans-serif'
-                        },
-            style_data={                # overflow cells' content into multiple lines
-                'whiteSpace': 'normal',
-                'height': 'auto'
-                },
-            style_header={
-                        'backgroundColor': '#0074D9',
-                        'color': 'white'
-                        },
-            export_format='xlsx',
-            export_headers='display',
-            )
+        if not all_check_df.empty:
+            all_table = dash_table.DataTable(
+                all_check_df.to_dict('records'), 
+                [{"name": i, "id": i} for i in all_check_df.columns], 
+                id=id,
+                filter_action="native",
+                page_action="native",
+                page_current= 0,
+                page_size= 20,
+                row_deletable=row_deletable,
+                style_table={'overflowX': 'auto','minWidth': '100%',},
+                style_cell={ 
+                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                            'minWidth': '100px', 'maxWidth': '100px', 'width': '100px',
+                            'fontSize':16, 'font-family':'sans-serif'
+                            },
+                style_data={                # overflow cells' content into multiple lines
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                    },
+                style_header={
+                            'backgroundColor': '#0074D9',
+                            'color': 'white'
+                            },
+                export_format='xlsx',
+                export_headers='display',
+                )
+        else:
+            all_table = dash_table.DataTable(
+                all_check_df.to_dict('records'), 
+                id=id,
+                row_deletable=row_deletable,
+                )
         return all_table
 
 
@@ -480,6 +493,7 @@ def init_callbacks():
         Output('leave_quota_datatable_div', 'children'),
         [
             Input('check_h2', 'children'),
+            Input('leave_table_future', 'data'),
             ],
         [
             State('url', 'search'),
@@ -487,7 +501,7 @@ def init_callbacks():
             ],
         #prevent_initial_call=False,
         )
-    def leave_quota_table(leave_table_future, search, pathname):
+    def leave_quota_table(check_h2, data, search, pathname):
         print('leave_quota_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
@@ -618,7 +632,8 @@ def init_callbacks():
                     _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M:%S')
                 except:
                     _start = datetime.strptime(leave_start, '%Y-%m-%dT%H:%M')
-                _end = datetime.strptime(leave_end[0],'%Y-%m-%d %H:%M:%S')
+                #print(leave_end)
+                _end = datetime.strptime(leave_end,'%Y-%m-%d %H:%M:%S')
                 try:
                     _timerange_start = _start.strftime("%Y-%m-%d %H:%M:%S")
                 except:
@@ -648,7 +663,7 @@ def init_callbacks():
                         break
 
                 if _successful_record:
-                    end = datetime.strptime(leave_end[0], '%Y-%m-%d %H:%M:%S')
+                    end = datetime.strptime(leave_end, '%Y-%m-%d %H:%M:%S')
                     # add to leaves table
                     db.db_session.add(db.Leaves(
                         staff_name=staff.staff_name, 
@@ -716,7 +731,7 @@ def init_callbacks():
             else:
                 leave_table = dash_table.DataTable(
                     leave_df.to_dict('records'), 
-                    id='leave_table')
+                    id=id)
             leave_datatable_lst.append(leave_table)
             #print(leave_msg, leave_table)
         return leave_msg, leave_datatable_lst[0], leave_datatable_lst[1]
@@ -749,33 +764,99 @@ def init_callbacks():
             if (data != None) and (data_previous != None):
                 _del_index = unmatched_set.pop()
                 leave = db.db_session.query(db.Leaves).filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).scalar()
-                leave_type = leave.type
-                leave_reserved = leave.reserved
                 print(leave)
-                print(leave_type)
-                print(leave_reserved)
+                if leave:
+                    leave_type = leave.type
+                    leave_reserved = leave.reserved
+                    print(leave)
+                    print(leave_type)
+                    print(leave_reserved)
 
-                db.db_session.query(db.Leaves).\
-                filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).\
-                delete()
+                    db.db_session.query(db.Leaves).\
+                    filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff.staff_name).\
+                    delete()
 
-                # update staff quota
-                for k,v in db.leaves_type.items():
-                    if leave_type == v['type']:
-                        _unit = v['unit']/8
-                        _type = k
+                    # update staff quota
+                    for k,v in db.leaves_type.items():
+                        if leave_type == v['type']:
+                            _unit = v['unit']/8
+                            _type = k
+                            break
+                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff.staff_name).scalar().__dict__.get(_type)
+                    print(cur_quota)
+                    updated_quota = cur_quota + leave_reserved*_unit
+                    print(updated_quota)
+                    db.db_session.query(db.Staffs).\
+                    filter(db.Staffs.staff_name == staff.staff_name).\
+                    update({f"{_type}": updated_quota})
+                    
+                    db.db_session.commit()
+                    return [data]
+                else:
+                    return [data]
+
+
+    @callback(
+    [
+        Output('monthly_all_leave_dataframe', 'data'), 
+        ],
+    [
+        Input('monthly_all_leave_dataframe', 'data'),
+        ],
+    [
+        State('url', 'search'),
+        State('monthly_all_leave_dataframe', 'data_previous'),
+        ],
+    prevent_initial_call=True,
+    )
+    def update_monthly_all_leave_data_after_del(data, search, data_previous):
+        print('update_monthly_all_leave_data_after_del')
+        print(data)
+        data_index = set(i['id'] for i in data)
+        data_previous_index = set(i['id'] for i in data_previous)
+        unmatched_set = data_previous_index.difference(data_index)
+        if data == data_previous:
+            raise PreventUpdate
+        else:
+            if (data != None) and (data_previous != None):
+                _del_index = unmatched_set.pop()
+                #print(_del_index)
+                for u in data_previous:
+                    #print(u)
+                    if u.get('id') == _del_index:
+                        staff_name = u['staff_name']
                         break
-                cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff.staff_name).scalar().__dict__.get(_type)
-                print(cur_quota)
-                updated_quota = cur_quota + leave_reserved*_unit
-                print(updated_quota)
-                db.db_session.query(db.Staffs).\
-                filter(db.Staffs.staff_name == staff.staff_name).\
-                update({f"{_type}": updated_quota})
-                
-                db.db_session.commit()
-            #refresh the page
-            return [data]
+                leave = db.db_session.query(db.Leaves).filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).scalar()
+                print(leave)
+                if leave:
+                    leave_type = leave.type
+                    leave_reserved = leave.reserved
+                    print(leave)
+                    print(leave_type)
+                    print(leave_reserved)
+
+                    db.db_session.query(db.Leaves).\
+                    filter(db.Leaves.id == _del_index, db.Leaves.staff_name == staff_name).\
+                    delete()
+
+                    # update staff quota
+                    for k,v in db.leaves_type.items():
+                        if leave_type == v['type']:
+                            _unit = v['unit']/8
+                            _type = k
+                            break
+                    cur_quota = db.db_session.query(db.Staffs).filter(db.Staffs.staff_name == staff_name).scalar().__dict__.get(_type)
+                    print(cur_quota)
+                    updated_quota = cur_quota + leave_reserved*_unit
+                    print(updated_quota)
+                    db.db_session.query(db.Staffs).\
+                    filter(db.Staffs.staff_name == staff_name).\
+                    update({f"{_type}": updated_quota})
+                    
+                    db.db_session.commit()
+                    return [data]
+                else:
+                    return [data]
 
 
     # datepicker for check_table
