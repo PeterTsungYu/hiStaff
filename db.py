@@ -237,6 +237,7 @@ class staffs_datatable_generator:
 
 
 def check_leave_calc(staff, start, end, date_index):
+    #now = datetime.datetime.now()
     location_dict = {}
     in_dict = {}
     for i in staff.checkin_time:
@@ -450,24 +451,43 @@ class table_generator:
         return df
     
     def leave_dataframe(self):
-        leave_dict = {}
+        now = datetime.now().date()
+        leave_dict_past = {}
+        leave_dict_future = {}
         for i in self.staff.Leaves_time:
-            if self.start <= i.start.date() <= self.end: 
-                for k,v in leaves_type.items():
-                    if i.type == v['type']:
-                        leave_type = k
-                        leave_unit = v['unit']
-                leave_dict[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
-        if leave_dict:
-            leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'end', 'reserved', 'unit'])[::-1].reset_index()
-            leave_df['start'] = leave_df['start'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
-            leave_df['end'] = leave_df['end'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
-            #datetime. strptime(date_time_str, '%d/%m/%y %H:%M:%S')
-            #df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
-            print(leave_df)
-        else:
-            leave_df = pd.DataFrame()
-        return leave_df
+            for span in ['past', 'future']:
+                if span == 'past':
+                    if self.start <= i.end.date() < now: 
+                        for k,v in leaves_type.items():
+                            if i.type == v['type']:
+                                leave_type = k
+                                leave_unit = v['unit']
+                        leave_dict_past[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
+                elif span == 'future':
+                    if now <= i.start.date() <= self.end or now <= i.end.date() <= self.end: 
+                        for k,v in leaves_type.items():
+                            if i.type == v['type']:
+                                leave_type = k
+                                leave_unit = v['unit']
+                        leave_dict_future[f'{i.id}'] = [leave_type, i.start, i.end, i.reserved, leave_unit]
+        
+        leave_df_lst = []
+        for span in ['past', 'future']:
+            if span == 'past':
+                leave_dict = leave_dict_past
+            elif span == 'future':
+                leave_dict = leave_dict_future
+            if leave_dict:
+                leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'end', 'reserved', 'unit'])[::-1].reset_index()
+                leave_df['start'] = leave_df['start'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+                leave_df['end'] = leave_df['end'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+                #datetime. strptime(date_time_str, '%d/%m/%y %H:%M:%S')
+                #df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
+                print(leave_df)
+            else:
+                leave_df = pd.DataFrame()
+            leave_df_lst.append(leave_df)
+        return leave_df_lst # 'past', 'future'
 
     def check_dataframe(self):
         start = datetime.strptime(self.start, '%Y-%m-%d').date()

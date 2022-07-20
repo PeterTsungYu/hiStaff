@@ -132,7 +132,7 @@ def init_callbacks():
         return datatable
 
     # leave form objs
-    leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1", style={'height': '60px', 'width': '300px', 'font-size': "24px",},)
+    leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1", style={'height': '40px', 'font-size': "20px",},)
     leave_card = dbc.Card([
                     dbc.CardHeader("Leave Form"),
                     dbc.CardBody(
@@ -173,10 +173,11 @@ def init_callbacks():
                             dcc.Slider(id="reserved_amount_slider", min=1, max=8, step=1, value=1),
                             html.Br(),
                             html.H2("Leave End", className="card-title"),
-                            html.H3(id='leave_end'),
+                            html.H4(id='leave_end'),
                             html.Br(),
+                            html.Div(id='leave_entry'),
                             dcc.ConfirmDialogProvider(
-                                children=html.Button('Click to take a leave', style={'height': '60px', 'width': '300px', 'font-size': "24px",}),
+                                children=html.Button('Click to take a leave', style={'height': '60px', 'font-size': "20px",}),
                                 id='leave_button',
                                 message='Ready to submit your day-off request. Pls double make sure it.',
                             ),
@@ -199,8 +200,13 @@ def init_callbacks():
                 dbc.Card([
                     dbc.CardHeader("Yearly Leave Table"),
                     dbc.CardBody([
-                        html.H3(id='leave_msg'),
-                        html.Div(id='total_leave_datatable_div', style=table_style)
+                        html.P(id='leave_msg'),
+                        html.Br(),
+                        html.H4("Leave Datatable: Future", className="card-title"),
+                        html.Div(id='total_leave_datatable_future_div', style=table_style),
+                        html.Br(),
+                        html.H4("Leave Datatable: Past", className="card-title"),
+                        html.Div(id='total_leave_datatable_past_div', style=table_style),
                     ])
                     ]), 
                     width=11),
@@ -436,15 +442,15 @@ def init_callbacks():
     @callback(
         Output('leave_quota_datatable_div', 'children'),
         [
-            Input('leave_table', 'data'),
+            Input('check_h2', 'children'),
             ],
         [
             State('url', 'search'),
             State('url', 'pathname'),
             ],
-        prevent_initial_call=True,
+        #prevent_initial_call=False,
         )
-    def leave_quota_table(leave_table, search, pathname):
+    def leave_quota_table(leave_table_future, search, pathname):
         print('leave_quota_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
@@ -456,8 +462,8 @@ def init_callbacks():
             style_table={'overflowX': 'auto','minWidth': '100%',},
             style_cell={ 
                         'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                        'minWidth': '80px', 'maxWidth': '180px', 'width': '120px',
-                        'fontSize':22, 'font-family':'sans-serif'
+                        'minWidth': '80px', 'maxWidth': '120px', 'width': '800px',
+                        'fontSize':14, 'font-family':'sans-serif'
                         },
             style_data={                # overflow cells' content into multiple lines
                 'whiteSpace': 'normal',
@@ -476,19 +482,33 @@ def init_callbacks():
         Output('leave_unit', 'children'),
         Output('reserved_amount_slider', 'max'),
         Output('leave_end', 'children'),
+        Output('leave_entry', 'children'),
     ],
     [
         Input('leave_start_datetime_picker', 'value'),
         Input('reserved_amount_slider', 'value'),        
         Input('leave_type_radio', 'value'),
     ],
+    State('reserved_amount_slider', 'max'),
     )
-    def update_on_leave_start_amount(leave_start, reserved_amount, leave_type) :
+    def update_on_leave_start_amount(leave_start, reserved_amount, leave_type, max) :
         _lst = [leave_start, reserved_amount, leave_type]
         if any(_arg == None for _arg in _lst):
-            raise PreventUpdate
+            leave_unit_children = 'Pls select a type'
+            leave_end = 'Pls select a type'
+            leave_entry = dcc.Markdown(
+                f'''
+                    Ready to take a leave
+                    Pls Fill in all of 
+                    * leave_type
+                    * leave_start
+                    * leave_end
+                    * leave_reserved
+                ''')
+            return leave_unit_children, max, leave_end, leave_entry
+            
         else:
-            print(leave_start)
+            #print(leave_start)
             try:
                 leave_start = datetime.strptime(leave_start.split('.')[0], '%Y-%m-%dT%H:%M:%S')
             except:
@@ -514,13 +534,20 @@ def init_callbacks():
                     leave_end = ((leave_start + timedelta(days=reserved_amount-1)).replace(hour=17, minute=30, second=0)).strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     leave_end = (leave_start + timedelta(hours=_unit*reserved_amount)).strftime("%Y-%m-%d %H:%M:%S")
-            return leave_unit_children, max, [leave_end]
+            leave_entry = dcc.Markdown(
+                f'''
+                    * From {leave_start}
+                    * To {leave_end}
+                    * {_type}: {_unit}*{reserved_amount} hr
+                ''')
+            return leave_unit_children, max, leave_end, leave_entry
 
 
     @callback(
         [
             Output('leave_msg', 'children'),
-            Output('total_leave_datatable_div', 'children'),
+            Output('total_leave_datatable_past_div', 'children'),
+            Output('total_leave_datatable_future_div', 'children'),
         ],
         [
             Input('leave_button', 'submit_n_clicks'),
@@ -545,7 +572,7 @@ def init_callbacks():
         # Yearly leave 
         leave_table_generator = db.table_generator(date(start.year, 1, 1), date(start.year, 12, 31), staff)
 
-        leave_msg = 'Ready to take a leave. Pls Fill in all of leave_type, leave_start, leave_end, leave_reserved.'
+        leave_msg = None
         if submit_n_clicks:
             _lst = [leave_type, leave_start, leave_end, leave_reserved]
             if not any(_arg == None for _arg in _lst):
@@ -611,54 +638,64 @@ def init_callbacks():
                     leave_msg = 'Successful leave_record'
                     db.db_session.commit()
                     
-        leave_df = leave_table_generator.leave_dataframe()
-        print(leave_df)
-        if not leave_df.empty:
-            leave_table = dash_table.DataTable(
-                leave_df.to_dict('records'), 
-                [{"name": i, "id": i} for i in leave_df.columns], 
-                id='leave_table',
-                filter_action="native",
-                row_deletable=True,
-                page_action="native",
-                page_current= 0,
-                page_size= 10,
-                export_format='xlsx',
-                export_headers='display',
-                style_table={'overflowX': 'auto','minWidth': '100%',},
-                style_cell={ 
-                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                            'minWidth': '130px', 'maxWidth': '200px', 'width': '180px',
-                            'fontSize':26, 'font-family':'sans-serif'
-                            },
-                style_data={                # overflow cells' content into multiple lines
-                    'whiteSpace': 'normal',
-                    'height': 'auto'
-                    },
-                style_header={
-                            'backgroundColor': '#0074D9',
-                            'color': 'white'
-                            },
-                )
-        else:
-            leave_table = dash_table.DataTable(
-                leave_df.to_dict('records'), 
-                id='leave_table')
-        #print(leave_msg, leave_table)
-        return [leave_msg], [leave_table]
+        leave_df_past, leave_df_future = leave_table_generator.leave_dataframe()
+        leave_datatable_lst = []
+        for span in ['past', 'future']:
+            if span == 'past':
+                leave_df = leave_df_past
+                id = 'leave_table_past'
+                row_deletable = False
+            elif span == 'future':
+                leave_df = leave_df_future
+                id = 'leave_table_future'
+                row_deletable = True
+            if not leave_df.empty:
+                leave_table = dash_table.DataTable(
+                    leave_df.to_dict('records'), 
+                    [{"name": i, "id": i} for i in leave_df.columns], 
+                    id=id,
+                    filter_action="native",
+                    row_deletable=row_deletable,
+                    page_action="native",
+                    page_current= 0,
+                    page_size= 10,
+                    export_format='xlsx',
+                    export_headers='display',
+                    style_table={'overflowX': 'auto','minWidth': '100%',},
+                    style_cell={ 
+                                'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                                'minWidth': '100px', 'maxWidth': '150px', 'width': '100px',
+                                'fontSize':18, 'font-family':'sans-serif'
+                                },
+                    style_data={                # overflow cells' content into multiple lines
+                        'whiteSpace': 'normal',
+                        'height': 'auto'
+                        },
+                    style_header={
+                                'backgroundColor': '#0074D9',
+                                'color': 'white'
+                                },
+                    )
+            else:
+                leave_table = dash_table.DataTable(
+                    leave_df.to_dict('records'), 
+                    id='leave_table')
+            leave_datatable_lst.append(leave_table)
+            #print(leave_msg, leave_table)
+        return leave_msg, leave_datatable_lst[0], leave_datatable_lst[1]
 
 
     # update the leave table after delete        
     @callback(
     [
-        Output('leave_table', 'data'), 
+        Output('leave_table_future', 'data'), 
         ],
     [
-        Input('leave_table', 'data'),
+        Input('leave_table_future', 'data'),
         ],
     [
         State('url', 'search'),
-        State('leave_table', 'data_previous'),
+        State('leave_table_future', 'data_previous'),
         ],
     prevent_initial_call=True,
     )
