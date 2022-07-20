@@ -388,6 +388,17 @@ class all_table_generator:
         self.calendar=hiCalendar(start = datetime(year, month, 1), end = (datetime(year, month, 1) + pd.offsets.MonthEnd(1)).date())
         self.staff_lst = db_session.query(Staffs)
 
+    def leave_dataframe(self):
+        start = self.calendar.start.date()
+        end = self.calendar.end
+
+        check_dict = {'id': [], 'staff_name': [], 'type': [], 'start': [], 'end': [], 'reserved': []}
+        for entry in db_session.query(Leaves).all():
+            if start <= entry.start.date() <= end or start <= entry.end.date() <= end:
+                for k in check_dict.keys():
+                    check_dict[k].append(entry.__dict__.get(k))
+        return pd.DataFrame(data=check_dict)
+
     def check_in_out_dataframe(self, table_name):
         if table_name == 'CheckIn':
             table = CheckIn

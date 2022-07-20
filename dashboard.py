@@ -68,7 +68,7 @@ def init_callbacks():
     month_dropdown = dcc.Dropdown(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], datetime.now().strftime("%b"), id='month_dropdown', placeholder="Select A Month",)
     year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown', placeholder="Select A Year",)
     season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
-    check_dropdown = dcc.Dropdown(['Monthly Report', 'CheckIn Report', 'CheckOut Report'], 'Monthly Report', id='check_dropdown', placeholder="Report",)
+    check_dropdown = dcc.Dropdown(['Monthly Report', 'CheckIn Report', 'CheckOut Report', 'Leave Report'], 'Monthly Report', id='check_dropdown', placeholder="Report",)
 
     def check_table(check_df):
         #print(check_df.columns)
@@ -431,19 +431,30 @@ def init_callbacks():
         #print(db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe())
         if check_dropdown == 'Monthly Report':
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_dataframe()
+            id = 'monthly_all_check_dataframe'
+            row_deletable = False
         elif check_dropdown == 'CheckIn Report':
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_in_out_dataframe('CheckIn')
+            id = 'monthly_all_checkin_dataframe'
+            row_deletable = False
         elif check_dropdown == 'CheckOut Report':
             all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).check_in_out_dataframe('CheckOut')
+            id = 'monthly_all_checkout_dataframe'
+            row_deletable = False
+        elif check_dropdown == 'Leave Report':
+            all_check_df = db.all_table_generator(year= int(year), month=int(datetime.strptime(month, "%b").month)).leave_dataframe()
+            id = 'monthly_all_leave_dataframe'
+            row_deletable = True
 
         all_table = dash_table.DataTable(
             all_check_df.to_dict('records'), 
             [{"name": i, "id": i} for i in all_check_df.columns], 
-            id='all_table',
+            id=id,
             filter_action="native",
             page_action="native",
             page_current= 0,
             page_size= 20,
+            row_deletable=row_deletable,
             style_table={'overflowX': 'auto','minWidth': '100%',},
             style_cell={ 
                         'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
