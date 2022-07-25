@@ -15,7 +15,7 @@ def strptime(time) -> datetime:
     if 't' in time:
         return datetime.strptime(time[2:], '%y-%m-%dt%H:%M')
     else:
-        return datetime.strptime(time, '%Y-%m-%d %H:%M:%S')
+        return datetime.strptime(time, '%Y-%m-%d %H:%M')
 def strf_datetime(dt) -> str:
     date_args = [u for i in dt.split(',') for u in i.split(' ') if all([u != cond for cond in ['','PM','AM']])]
     #config.logger.debug(date_args)
@@ -249,7 +249,7 @@ def handle_postback(event):
 
         try:
             if id == '0':
-                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=now_datetime.strftime("%Y-%m-%d %H:%M:%S"), location=location)
+                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=now_datetime.strftime("%Y-%m-%d %H:%M"), location=location)
             elif id == '1':
                 msg_reply = TextSendMessage(
                     text=f"Share your location",
@@ -288,11 +288,6 @@ def handle_postback(event):
                                     msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
                                 else:
                                     msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
-                            '''
-                            # case: check prior
-                            if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
-                                msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
-                            '''    
                     elif check == 'checkout': 
                         for i in [0,1,2]:
                             if i == 0:
@@ -319,7 +314,6 @@ def handle_postback(event):
                                 # case: check correctly and first time check
                             elif i == 2:
                                 checkout = db.CheckOut(staff_name=staff_name, created_time=moment, check_place=location)
-                                print('check here')
                                 db.db_session.add(checkout)
                                 db.db_session.commit()
                                 if (moment.hour > 17) :
@@ -328,40 +322,8 @@ def handle_postback(event):
                                     msg_reply = [TextSendMessage(text=f'Succeed to {check}\nEfficiency is your motto!')]
                                 else:
                                     msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')] 
-                            '''
-                            # case: check belatedly
-                            if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
-                                msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
-                            '''    
-                    elif '_Leave_start' in check :
-                        try:
-                            db.db_session.add(db.Leaves(staff_name=staff_name, start=moment, type=db.leaves_type[check.strip('_start')]['type']))
-                            db.db_session.commit()
-                            msg_reply = [
-                                TextSendMessage(text=f'Succeed to take {check}'),
-                                db.moment_bubble(check=check.strip('_start')+'_end', img_url=check_img_url, staff_name=staff_name, now = now_datetime),
-                            ]
-                        except:
-                            msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
-
-                    elif '_Leave_end' in check:
-                        try:
-                            check = check.strip("end").strip("_")
-                            _entry = db.db_session.query(db.Leaves).filter(db.Leaves.staff_name==staff_name, db.Leaves.type==db.leaves_type[check.strip('_start')]['type']).order_by(db.Leaves.id.desc()).first()
-                            if moment >= _entry.start:
-                                db.db_session.query(db.Leaves).\
-                                filter(db.Leaves.staff_name==staff_name, db.Leaves.id==_entry.id).\
-                                update({"end": moment})
-                                db.db_session.commit()
-                                msg_reply = TextSendMessage(text=f'Succeed to take {check}')
-                                config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'{staff_name} takes {check} from {_entry.start} to {moment}'))
-                            else:
-                                msg_reply = [
-                                    TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
-                                    db.moment_bubble(check=check+'_end', img_url=check_img_url, staff_name=staff_name, now=now_datetime),
-                                ]
-                        except:
-                            msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
+                else:
+                    msg_reply = [TextSendMessage(text=f'Exceed 5min pending time. Pls restart your check again.')] 
 
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
 

@@ -119,6 +119,7 @@ class Staffs(Base):
     __tablename__ = 'staffs_table'
     uuid = Column(String, primary_key=True)
     staff_name = Column(String, nullable=False)
+    beacon = Column(Boolean, default=False)
     Official_Leave = Column(Float, default=365)
     Personal_Leave = Column(Float, default=14)
     Sick_Leave = Column(Float, default=30)
@@ -258,7 +259,8 @@ def check_leave_calc(staff, start, end, date_index):
                 location_dict[i.created_time.date()]['out'] = i.check_place
     out_lst = [f"{str(out_dict[i].hour).zfill(2)}:{str(out_dict[i].minute).zfill(2)}" if i in out_dict.keys() else None for i in date_index]
 
-    location_lst = [f"{location_dict[i].get('in')} {location_dict[i].get('out')}" if i in location_dict.keys() else None for i in date_index]
+    in_location_lst = [f"{location_dict[i].get('in')}" if i in location_dict.keys() else '' for i in date_index]
+    out_location_lst = [f"{location_dict[i].get('out')}" if i in location_dict.keys() else '' for i in date_index]
     
     leave_dict = {}
     leave_lst_dict = {}
@@ -323,7 +325,7 @@ def check_leave_calc(staff, start, end, date_index):
                 worktime_dict[i] = (out_dict[i].timestamp() - in_dict[i].timestamp())/60/60
     worktime_lst = [round(worktime_dict[i],2) if i in worktime_dict.keys() else 0 for i in date_index]
 
-    return in_lst, out_lst, location_lst, leave_time_lst, leave_amount_lst, worktime_lst
+    return in_lst, out_lst, in_location_lst, out_location_lst, leave_time_lst, leave_amount_lst, worktime_lst
 
 class season_table_generator:
     def __init__(self, staff, year, season):
@@ -351,7 +353,7 @@ class season_table_generator:
             date_index = calendar.date_index.date
             momthly_lst = {}
             for staff in self.staff_lst:
-                in_lst, out_lst, location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(staff, start, end, date_index)
+                in_lst, out_lst, in_location_lst, out_location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(staff, start, end, date_index)
                 
                 work_amount = round(sum(worktime_lst), 2)
                 leave_amount = round(sum(leave_amount_lst), 2)
@@ -422,7 +424,7 @@ class all_table_generator:
         date_index = self.calendar.date_index.date
 
         for staff in self.staff_lst:
-            in_lst, out_lst, location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(staff, start, end, date_index)
+            in_lst, out_lst, in_location_lst, out_location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(staff, start, end, date_index)
 
             work_amount = round(sum(worktime_lst), 2)
             leave_amount = round(sum(leave_amount_lst), 2)
@@ -523,12 +525,12 @@ class table_generator:
         date_index = self.calendar.date_index.date
         bdays_hdays_df = self.calendar.bdays_hdays()
 
-        in_lst, out_lst, location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(self.staff, start, end, date_index)
+        in_lst, out_lst, in_location_lst, out_location_lst, leave_time_lst, leave_amount_lst, worktime_lst = check_leave_calc(self.staff, start, end, date_index)
         
         agg_lst = [round(sum(worktime_lst[:i+1]) + sum(leave_amount_lst[:i+1]), 2) for i in range(len(worktime_lst))]
         #print(agg_lst)
 
-        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'location':location_lst, 'worktime[hr]':worktime_lst, 'leave_start':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
+        df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'location_in':in_location_lst, 'checkout':out_lst, 'location_out':out_location_lst, 'worktime[hr]':worktime_lst, 'leave_start':leave_time_lst, 'leave_amount[hr]':leave_amount_lst, 'aggregation[hr]':agg_lst})
         df['date'] = df['date'].dt.strftime("%m/%d/%Y")
         df.iloc[:] = df.iloc[::-1].values # reverse rows
 
@@ -711,9 +713,9 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    #reset_staffs_table()
+    reset_staffs_table()
     #update_staffs_table()
-    reset_staff_quota(staff_name='Johnson', quota_name='Official_Leave', updated_quota=365-0.25)
+    #reset_staff_quota(staff_name='Johnson', quota_name='Official_Leave', updated_quota=365-0.25)
     
     #season_table_generator(year=2022, season='Q1').check_dataframe()
     #table_generator(start=datetime.now(), end=datetime.now(), staff_name='謝宗佑').check_dataframe()

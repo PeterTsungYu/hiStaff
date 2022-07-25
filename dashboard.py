@@ -86,11 +86,11 @@ def init_callbacks():
                             style_table={'overflowX': 'auto','minWidth': '50%',},
                             style_cell={ 
                                 'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
-                                'minWidth': '120px', 'maxWidth': '150px', 'width': '120px',
+                                'minWidth': '120px', 'maxWidth': '300px', 'width': '120px',
                                 'fontSize':18, 'font-family':'sans-serif'
                                 },
                             style_data={                # overflow cells' content into multiple lines
-                                'whiteSpace': 'normal',
+                                #'whiteSpace': 'normal',
                                 'height': 'auto'
                             },
                             style_data_conditional=[
@@ -863,9 +863,7 @@ def init_callbacks():
     @callback(
         [
             Output('check_datatable_div', 'children'),
-            Output('previous_check_store', 'data'),
             #Output('agg_check_store', 'data'),
-            Output('sum_string', 'children'),
             ],
         [
             Input('check_datepicker', 'start_date'),
@@ -878,22 +876,12 @@ def init_callbacks():
         #print(f'{search} from datepicker_check_table')
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
-        print(start_date)
-        print(end_date)
+        #print(start_date)
+        #print(end_date)
         check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
-        workhour = sum(check_df['worktime[hr]'].iloc[:])
-        leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
-
-        # leave
-        #leave_df = db.table_generator(start_date, end_date, staff).leave_dataframe()
-
         return [
             check_table(check_df), 
-            check_df.to_json(orient='split', date_format='iso'),
-            [html.H3(f"Working hours:   {workhour} [hr]"),
-            html.H3(f"Leaving hours     {leavehour} [hr]"), 
-            html.H3(f"Required hours:   {required_hours} [hr]"), 
-            html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),],
+            #check_df.to_json(orient='split', date_format='iso'),
         ]
 
 
@@ -906,6 +894,7 @@ def init_callbacks():
         Output('change_string', 'children'),
         Output('check_datatable', 'data'),
         Output('check_changes_store', 'data'),
+        Output('sum_string', 'children'),
         ],
     [
         Input('check_datatable', 'data'),
@@ -922,113 +911,117 @@ def init_callbacks():
         ],
     )
     def update_check_data(data, submit_n_clicks, data_previous, active_cell, reason, search, start_date, end_date, changes):
+        _uuid = dict(parse_qsl(unquote(search))).get('?staff')
+        staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
         print('update_check_data')
         print(active_cell)
         print(ctx.triggered_id)
         if ctx.triggered_id == 'check_datatable':
-            if not (data and data_previous):
-                raise PreventUpdate
-            #print(data) # list of dictionaries of str or None
-            #print(data_previous)
-            
-            for i in range(len(data)):
-                for col in ['checkin', 'checkout']:
-                    # input format regular expression
-                    if data[i][col] is not None:
-                        if (r.match(data[i][col]) is None):
-                            data[i][col] = None
-                        else:
-                            _hour = data[i][col][0:2]
-                            _minute = data[i][col][3:]
-                            #print(_hour, _minute)
-                            if int(_hour) <= 0 or int(_hour) > 23 or int(_minute) < 0 or int(_minute) > 59:
+            if data and data_previous:
+                for i in range(len(data)):
+                    for col in ['checkin', 'checkout']:
+                        # input format regular expression
+                        if data[i][col] is not None:
+                            if (r.match(data[i][col]) is None):
                                 data[i][col] = None
-                        #print(data[i][col])
-                    # Restrict Editable time to 31 days
-                    if i >= 31:
-                        #print(i, data[i][col], data_previous[i][col])
-                        data[i][col] = data_previous[i][col]
-                # check in <= checkout
-                if data[i]['checkin'] != None and data[i]['checkout'] != None:
-                    #print(data[i]['checkin'])
-                    #print(data[i]['checkout'])
-                    if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
-                        data[i]['checkin'] = data_previous[i]['checkin']
-                        data[i]['checkout'] = data_previous[i]['checkout']
+                            else:
+                                _hour = data[i][col][0:2]
+                                _minute = data[i][col][3:]
+                                #print(_hour, _minute)
+                                if int(_hour) <= 0 or int(_hour) > 23 or int(_minute) < 0 or int(_minute) > 59:
+                                    data[i][col] = None
+                            #print(data[i][col])
+                        # Restrict Editable time to 31 days
+                        if i >= 31:
+                            #print(i, data[i][col], data_previous[i][col])
+                            data[i][col] = data_previous[i][col]
+                    # check in <= checkout
+                    if data[i]['checkin'] != None and data[i]['checkout'] != None:
+                        #print(data[i]['checkin'])
+                        #print(data[i]['checkout'])
+                        if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
+                            data[i]['checkin'] = data_previous[i]['checkin']
+                            data[i]['checkout'] = data_previous[i]['checkout']
 
-            changes = {}
-            for i in range(len(data)):
-                if data[i] != data_previous[i]:
-                    for col in ('checkin', 'checkout'):
-                        if data[i][col] != data_previous[i][col]:
-                            current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
-                            pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
-                            changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
-            print(changes)
-            entry = data[active_cell['row']][active_cell['column_id']]
+                changes = {}
+                for i in range(len(data)):
+                    if data[i] != data_previous[i]:
+                        for col in ('checkin', 'checkout'):
+                            if data[i][col] != data_previous[i][col]:
+                                current_datetime = data[i]['date'] + ' ' + data[i][col] if data[i][col] != None else None
+                                pre_datetime = data_previous[i]['date'] + ' ' + data_previous[i][col] if data_previous[i][col] != None else None
+                                changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
+                print(changes)
+                entry = data[active_cell['row']][active_cell['column_id']]
+                change_string = f"Select {active_cell['column_id']} @ {data[active_cell['row']]['date']}. Revise as {entry}"
+            else:
+                change_string = 'Try edit your checkin/checkout entry'
+            check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+            workhour = round(sum(check_df['worktime[hr]'].iloc[:]),2)
+            leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
+            sum_string = [html.H3(f"Working hours:   {workhour} [hr]"),
+                    html.H3(f"Leaving hours     {leavehour} [hr]"), 
+                    html.H3(f"Required hours:   {required_hours} [hr]"), 
+                    html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
 
-            return [f"Select {active_cell['column_id']} @ {data[active_cell['row']]['date']}. Revise as {entry}", data, changes]
+            return [change_string, data, changes, sum_string]
         
         elif ctx.triggered_id == 'check_button':
-            _uuid = dict(parse_qsl(unquote(search))).get('?staff')
-            staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
             #print(changes)
             #print(reason)
             #print(active_cell)
             if not submit_n_clicks:
                 raise PreventUpdate
             if not reason:
-                return [f"Fail. Pls note your reason.", data]
+                change_string = f"Fail. Pls note your reason."
             elif not (active_cell and active_cell['column_id'] in ['checkin', 'checkout']):
-                return [f"Fail. Select a checkin/checkout cell for revision.", data]
+                change_string = f"Fail. Select a checkin/checkout cell for revision."
             else:
-                entry = data[active_cell['row']][active_cell['column_id']]
-                for key, value in changes.items():
-                    #print(key, value)
-                    col = value['col']
-                    if 'checkin' in col:
-                        table = db.CheckIn
-                    elif 'checkout' in col:
-                        table = db.CheckOut
-                    pre = value['previous']
-                    cur = value['current']
-                    if (cur == None) and (pre == None):
-                        continue
-                    elif cur == None:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            print(e)
-                            #return [False, f"{pathname}{search}", str(e),]
-                        #delete the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                        delete()
-                    elif pre == None:
-                        try:
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                        except Exception as e:
-                            print(e)
-                            #return [False, f"{pathname}{search}", str(e),]
+                if not changes:
+                    change_string = f"Fail. Fill in a checkin/checkout cell for revision."
+                else:
+                    for key, value in changes.items():
+                        #print(key, value)
+                        col = value['col']
+                        if 'checkin' in col:
+                            table = db.CheckIn
+                        elif 'checkout' in col:
+                            table = db.CheckOut
+                        pre = datetime.strptime(value['previous'], '%m/%d/%Y %H:%M') if value['previous'] else None
+                        cur = datetime.strptime(value['current'], '%m/%d/%Y %H:%M') if value['current'] else None
+
+                        _today_entry = []
+                        _entry_date = cur.date() if cur else pre.date()
+                        for entry in db.db_session.query(table).filter(table.staff_name == staff.staff_name).all():
+                            if entry.created_time.date() == _entry_date:
+                                _today_entry.append(entry)
+                        _last_entry = _today_entry[-1] if _today_entry else None
+
+                        for entry in _today_entry:
+                            if entry != _last_entry:
+                                db.db_session.delete(entry)
+
+                        #delete the last entry of the day
+                        pre_place = 'None'
+                        if _last_entry:
+                            pre_place = _last_entry.check_place
+                            db.db_session.delete(_last_entry)
                         # insert a row
-                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason))
-                    else:
-                        try:
-                            pre = datetime.strptime(pre, '%m/%d/%Y %H:%M')
-                            cur = datetime.strptime(cur, '%m/%d/%Y %H:%M')
-                            #print(pre, cur)
-                        except Exception as e:
-                            print(e)
-                            #return [False, f"{pathname}{search}", str(e),]
-                        # update the row
-                        db.db_session.query(table).\
-                        filter(table.staff_name == staff.staff_name, table.created_time == pre).\
-                        update({"created_time": cur, "revised": reason})
-                db.db_session.commit()
-                #check_table(pd.DataFrame.from_records(data))
-                check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+                        if cur != None:
+                            db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason, check_place=f'{pre_place} prior' if 'prior' not in pre_place else f'{pre_place}'))
+                    db.db_session.commit()
+                    #check_table(pd.DataFrame.from_records(data))
+                    entry = data[active_cell['row']][active_cell['column_id']]
+                    change_string = f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}"
                 changes = {}
-                return [f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}", check_df.to_dict('records'), changes]
+                check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
+                workhour = round(sum(check_df['worktime[hr]'].iloc[:]),2)
+                leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
+                sum_string = [html.H3(f"Working hours:   {workhour} [hr]"),
+                        html.H3(f"Leaving hours     {leavehour} [hr]"), 
+                        html.H3(f"Required hours:   {required_hours} [hr]"), 
+                        html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
+                return [change_string, check_df.to_dict('records'), changes, sum_string]
     
 
     # route to check_layout / index_page / leave_form
