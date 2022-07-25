@@ -32,8 +32,7 @@ import haversine as hs
 import config
 import db
 
-checkin_img_url = "https://img.onl/f41SeX"
-checkout_img_url = "https://img.onl/BMdSLf"
+check_img_url = "https://img.onl/0P7lSa"
 
 ##======================schedulers==================================
 twtz = timezone('Asia/Taipei')
@@ -145,34 +144,33 @@ def handle_message(event):
     user = db.get_or_create_user(user_id=user_id)
     staff_integrity = db.db_session.query(db.Staffs).filter(db.Staffs.uuid == user.id).scalar()
     if staff_integrity != None:
-        if title != "hiPower GreenTech":
-            distance = hs.haversine(current_loc,office_loc)
-            if distance <= 1:
-                location = 'office'
-            elif title:
-                location = title
-            else:
-                location = 'remote'
-            msg_reply = TextSendMessage(
-                text=f"Select Check Type if correct location",
-                quick_reply=QuickReply(
-                    items=[
-                        QuickReplyButton(action=PostbackAction(
-                            label="Check In",
-                            data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkin&location={location}',
-                            )),
-                        QuickReplyButton(action=PostbackAction(
-                            label="Check Out",
-                            data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkout&location={location}',
-                            )),
-                        QuickReplyButton(action=LocationAction(f"Send location")),
-                    ]
-                    )
+        distance = hs.haversine(current_loc,office_loc)
+        if distance <= 1:
+            location = 'office'
+        elif title:
+            location = title
+        else:
+            location = address
+        msg_reply = TextSendMessage(
+            text=f"Select Check Type if correct location",
+            quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=PostbackAction(
+                        label="Check In",
+                        data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkin&location={location}',
+                        )),
+                    QuickReplyButton(action=PostbackAction(
+                        label="Check Out",
+                        data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkout&location={location}',
+                        )),
+                    QuickReplyButton(action=LocationAction(f"Send location")),
+                ]
                 )
-            config.line_bot_api.reply_message(
-                event.reply_token,
-                msg_reply
-                )
+            )
+        config.line_bot_api.reply_message(
+            event.reply_token,
+            msg_reply
+            )
 
 
 @config.handler.add(MessageEvent, message=TextMessage)
@@ -248,15 +246,6 @@ def handle_postback(event):
         check = back_dict.get('check')
         moment = back_dict.get('moment')
         location = back_dict.get('location')
-        
-        share_loc_msg = TextSendMessage(
-            text=f"Share your {check} location",
-            quick_reply=QuickReply(
-                items=[
-                   QuickReplyButton(action=LocationAction(f"Send {check} location")),
-                ]
-                )
-            )
 
         try:
             if (id == '0'):
@@ -271,10 +260,7 @@ def handle_postback(event):
                         )
                     )
             elif id == '2': 
-                if check == 'checkin':
-                    img_url = checkin_img_url
-                elif check == 'checkout':
-                    img_url = checkout_img_url
+                img_url = check_img_url
                 msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name, now=now_datetime, location=location)
             elif (id == '3') and (params != None): # id=0 action=datetimepicker 
                 _datetime = strptime(event.postback.params.get('datetime').lower())
@@ -359,7 +345,7 @@ def handle_postback(event):
                         db.db_session.commit()
                         msg_reply = [
                             TextSendMessage(text=f'Succeed to take {check}'),
-                            db.moment_bubble(check=check.strip('_start')+'_end', img_url=checkout_img_url, staff_name=staff_name, now = now_datetime),
+                            db.moment_bubble(check=check.strip('_start')+'_end', img_url=check_img_url, staff_name=staff_name, now = now_datetime),
                         ]
                     except:
                         msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
@@ -378,7 +364,7 @@ def handle_postback(event):
                         else:
                             msg_reply = [
                                 TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
-                                db.moment_bubble(check=check+'_end', img_url=checkout_img_url, staff_name=staff_name, now=now_datetime),
+                                db.moment_bubble(check=check+'_end', img_url=check_img_url, staff_name=staff_name, now=now_datetime),
                             ]
                     except:
                         msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
