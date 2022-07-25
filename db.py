@@ -667,14 +667,16 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
     return FlexSendMessage(alt_text=f'Hi {staff_name}, Clock!', contents=bubble)
 
 def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', location='Location'):
+    date = moment.split()[0]
+    time = moment.split()[1]
     bubble = BubbleContainer(
                 direction='ltr',
                 body=BoxComponent(
                     layout='vertical',
-                    spacing='sm',
+                    spacing='md',
                     contents=[
                         TextComponent(
-                            text=f"{check} {staff_name}\nLocation: {location}\nDateTime: {moment}",
+                            text=f"{date}\n{check} {staff_name}\nLocation: {location}\nTime: {time}",
                             weight='bold',
                             size='xl',
                             wrap=True,
@@ -689,15 +691,15 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', loc
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
-                                label="Revise DateTime",
-                                data=f'id=2&staff_name={staff_name}&check={check}&location={location}',
+                                label="Revise Location",
+                                data=f'id=1&staff_name={staff_name}&check={check}',
                             )
                         ),
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
                                 label="That's it",
-                                data=f'id=4&staff_name={staff_name}&check={check}&moment={moment}&location={location}',
+                                data=f'id=2&staff_name={staff_name}&check={check}&moment={moment}&location={location}',
                             )
                         )
                     ]

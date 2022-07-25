@@ -248,9 +248,9 @@ def handle_postback(event):
         location = back_dict.get('location')
 
         try:
-            if (id == '0'):
-                msg_reply = db.location_bubble(check=check, staff_name=staff_name, location=location)
-            elif (id == '1'):
+            if id == '0':
+                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=now_datetime.strftime("%Y-%m-%d %H:%M:%S"), location=location)
+            elif id == '1':
                 msg_reply = TextSendMessage(
                     text=f"Share your location",
                     quick_reply=QuickReply(
@@ -260,114 +260,108 @@ def handle_postback(event):
                         )
                     )
             elif id == '2': 
-                img_url = check_img_url
-                msg_reply = db.moment_bubble(check=check, img_url=img_url ,staff_name=staff_name, now=now_datetime, location=location)
-            elif (id == '3') and (params != None): # id=0 action=datetimepicker 
-                _datetime = strptime(event.postback.params.get('datetime').lower())
-                msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=_datetime, location=location)
-            elif id == '4': 
                 moment = strptime(moment)
-                # check in and check out table should be compared
-                config.logging.debug(datetime.now())
-                last_checkin = db.db_session.query(db.CheckIn).filter(db.CheckIn.staff_name == staff_name).order_by(db.CheckIn.id.desc()).first()
-                last_checkout = db.db_session.query(db.CheckOut).filter(db.CheckOut.staff_name == staff_name).order_by(db.CheckOut.id.desc()).first()
-                now = datetime.now()
-                config.logging.debug(now)
-                if check == 'checkin':
-                    for i in [0,1]:    
-                        if i == 0: 
-                        # compared to the last check
-                            if (last_checkin != None):
-                                last_checkin_moment = last_checkin.created_time
-                                # case: check already
-                                if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
-                                    msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
-                                    break
-                        elif i == 1:
-                        # case: check correctly or first time check
-                            checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
-                            db.db_session.add(checkin)
-                            db.db_session.commit()
-                            if (moment.hour > 8) :
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
-                            elif (moment.hour == 8) and (moment.hour > 30):
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
-                            else:
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
-                        '''
-                        # case: check prior
-                        if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
-                            msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
-                        '''    
-                elif check == 'checkout': 
-                    for i in [0,1,2]:
-                        if i == 0:
-                        # compared to the last check
-                            if last_checkout != None:
-                                last_checkout_moment = last_checkout.created_time
-                                # case: check already
-                                if (moment.year == last_checkout_moment.year) and (moment.month == last_checkout_moment.month) and (moment.day == last_checkout_moment.day):
-                                    msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
-                                    break
-                        # case: compared to the checkin table
-                        elif i == 1:
-                            if  last_checkin != None:
-                                last_checkin_moment = last_checkin.created_time
-                                if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
-                                    msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
+                print(moment)
+                print(now_datetime)
+                if (now_datetime.timestamp() - moment.timestamp()) <= (5*60): 
+                    # check in and check out table should be compared
+                    last_checkin = db.db_session.query(db.CheckIn).filter(db.CheckIn.staff_name == staff_name).order_by(db.CheckIn.id.desc()).first()
+                    last_checkout = db.db_session.query(db.CheckOut).filter(db.CheckOut.staff_name == staff_name).order_by(db.CheckOut.id.desc()).first()
+                    if check == 'checkin':
+                        for i in [0,1]:    
+                            if i == 0: 
+                            # compared to the last check
+                                if (last_checkin != None):
+                                    last_checkin_moment = last_checkin.created_time
+                                    # case: check already
+                                    if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
+                                        msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                        break
+                            elif i == 1:
+                            # case: check correctly or first time check
+                                checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
+                                db.db_session.add(checkin)
+                                db.db_session.commit()
+                                if (moment.hour > 8) :
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
+                                elif (moment.hour == 8) and (moment.hour > 30):
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
+                                else:
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
+                            '''
+                            # case: check prior
+                            if i == 1 and (now.timestamp() - moment.timestamp()) > (30*60): 
+                                msg_reply = TextSendMessage(text=f'Do not check prior. Be honest 0.0')
+                            '''    
+                    elif check == 'checkout': 
+                        for i in [0,1,2]:
+                            if i == 0:
+                            # compared to the last check
+                                if last_checkout != None:
+                                    last_checkout_moment = last_checkout.created_time
+                                    # case: check already
+                                    if (moment.year == last_checkout_moment.year) and (moment.month == last_checkout_moment.month) and (moment.day == last_checkout_moment.day):
+                                        msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                        break
+                            # case: compared to the checkin table
+                            elif i == 1:
+                                if  last_checkin != None:
+                                    last_checkin_moment = last_checkin.created_time
+                                    if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
+                                        msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
+                                        continue
+                                    elif moment.timestamp() < last_checkin_moment.timestamp():
+                                        msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
+                                        break
+                                else:
+                                    msg_reply = TextSendMessage(text=f"U've never checked in before. Unbelievable.")
                                     continue
-                                elif moment.timestamp() < last_checkin_moment.timestamp():
-                                    msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
-                                    break
-                            else:
-                                msg_reply = TextSendMessage(text=f"U've never checked in before. Unbelievable.")
-                                continue
-                            # case: check correctly and first time check
-                        elif i == 2:
-                            checkout = db.CheckOut(staff_name=staff_name, created_time=moment, check_place=location)
-                            print('check here')
-                            db.db_session.add(checkout)
+                                # case: check correctly and first time check
+                            elif i == 2:
+                                checkout = db.CheckOut(staff_name=staff_name, created_time=moment, check_place=location)
+                                print('check here')
+                                db.db_session.add(checkout)
+                                db.db_session.commit()
+                                if (moment.hour > 17) :
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nGood day, Worker!')]
+                                elif (moment.hour == 17) and (moment.hour < 30):
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nEfficiency is your motto!')]
+                                else:
+                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')] 
+                            '''
+                            # case: check belatedly
+                            if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
+                                msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
+                            '''    
+                    elif '_Leave_start' in check :
+                        try:
+                            db.db_session.add(db.Leaves(staff_name=staff_name, start=moment, type=db.leaves_type[check.strip('_start')]['type']))
                             db.db_session.commit()
-                            if (moment.hour > 17) :
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nGood day, Worker!')]
-                            elif (moment.hour == 17) and (moment.hour < 30):
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nEfficiency is your motto!')]
-                            else:
-                                msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')] 
-                        '''
-                        # case: check belatedly
-                        if i == 2 and (moment.timestamp() - now.timestamp()) > (60*3):
-                            msg_reply = TextSendMessage(text=f'Do not check belatedly. Be honest 0.0')
-                        '''    
-                elif '_Leave_start' in check :
-                    try:
-                        db.db_session.add(db.Leaves(staff_name=staff_name, start=moment, type=db.leaves_type[check.strip('_start')]['type']))
-                        db.db_session.commit()
-                        msg_reply = [
-                            TextSendMessage(text=f'Succeed to take {check}'),
-                            db.moment_bubble(check=check.strip('_start')+'_end', img_url=check_img_url, staff_name=staff_name, now = now_datetime),
-                        ]
-                    except:
-                        msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
-
-                elif '_Leave_end' in check:
-                    try:
-                        check = check.strip("end").strip("_")
-                        _entry = db.db_session.query(db.Leaves).filter(db.Leaves.staff_name==staff_name, db.Leaves.type==db.leaves_type[check.strip('_start')]['type']).order_by(db.Leaves.id.desc()).first()
-                        if moment >= _entry.start:
-                            db.db_session.query(db.Leaves).\
-                            filter(db.Leaves.staff_name==staff_name, db.Leaves.id==_entry.id).\
-                            update({"end": moment})
-                            db.db_session.commit()
-                            msg_reply = TextSendMessage(text=f'Succeed to take {check}')
-                            config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'{staff_name} takes {check} from {_entry.start} to {moment}'))
-                        else:
                             msg_reply = [
-                                TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
-                                db.moment_bubble(check=check+'_end', img_url=check_img_url, staff_name=staff_name, now=now_datetime),
+                                TextSendMessage(text=f'Succeed to take {check}'),
+                                db.moment_bubble(check=check.strip('_start')+'_end', img_url=check_img_url, staff_name=staff_name, now = now_datetime),
                             ]
-                    except:
-                        msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
+                        except:
+                            msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
+
+                    elif '_Leave_end' in check:
+                        try:
+                            check = check.strip("end").strip("_")
+                            _entry = db.db_session.query(db.Leaves).filter(db.Leaves.staff_name==staff_name, db.Leaves.type==db.leaves_type[check.strip('_start')]['type']).order_by(db.Leaves.id.desc()).first()
+                            if moment >= _entry.start:
+                                db.db_session.query(db.Leaves).\
+                                filter(db.Leaves.staff_name==staff_name, db.Leaves.id==_entry.id).\
+                                update({"end": moment})
+                                db.db_session.commit()
+                                msg_reply = TextSendMessage(text=f'Succeed to take {check}')
+                                config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'{staff_name} takes {check} from {_entry.start} to {moment}'))
+                            else:
+                                msg_reply = [
+                                    TextSendMessage(text=f'Unsucceessful {check}. Leave Start > Leave_End.'),
+                                    db.moment_bubble(check=check+'_end', img_url=check_img_url, staff_name=staff_name, now=now_datetime),
+                                ]
+                        except:
+                            msg_reply = TextSendMessage(text=f'Unsucceessful {check}')
 
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
 
@@ -375,4 +369,5 @@ def handle_postback(event):
             print(e)
 
 if __name__ == "__main__":
+    #config.line_bot_api.push_message("C9773535cc835cf00cc3df02db9f57b1b", TextSendMessage(text=f'{staff_name} takes {check} from {_entry.start} to {moment}'))
     pass
