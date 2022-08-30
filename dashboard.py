@@ -913,6 +913,7 @@ def init_callbacks():
     def update_check_data(data, submit_n_clicks, data_previous, active_cell, reason, search, start_date, end_date, changes):
         _uuid = dict(parse_qsl(unquote(search))).get('?staff')
         staff = db.db_session.query(db.Staffs).filter(db.Staffs.uuid==_uuid).scalar()
+        _now = datetime.now()
         print('update_check_data')
         print(active_cell)
         print(ctx.triggered_id)
@@ -941,6 +942,12 @@ def init_callbacks():
                         #print(data[i]['checkout'])
                         if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
                             data[i]['checkin'] = data_previous[i]['checkin']
+                            data[i]['checkout'] = data_previous[i]['checkout']
+                    # check time > now
+                    if datetime.strptime(data[i]['date'], '%m/%d/%Y').date() == _now.date():
+                        if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) > _now.time():
+                            data[i]['checkin'] = data_previous[i]['checkin']
+                        if datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])) > _now.time():
                             data[i]['checkout'] = data_previous[i]['checkout']
 
                 changes = {}

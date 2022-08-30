@@ -713,8 +713,8 @@ def reply_dash_msg():
     pass
 
 if __name__ == "__main__":
-    reset_staffs_table()
-    #update_staffs_table()
+    #reset_staffs_table()
+    update_staffs_table()
     #reset_staff_quota(staff_name='Johnson', quota_name='Official_Leave', updated_quota=365-0.25)
     
     #season_table_generator(year=2022, season='Q1').check_dataframe()
