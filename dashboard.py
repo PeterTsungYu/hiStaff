@@ -67,7 +67,12 @@ def init_callbacks():
     index_dropdown = dcc.Dropdown(['check', 'Season'], 'check', id='index_dropdown')
     month_dropdown = dcc.Dropdown(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], datetime.now().strftime("%b"), id='month_dropdown', placeholder="Select A Month",)
     year_dropdown = dcc.Dropdown(['2022', '2023', '2024', '2025', '2026'], datetime.now().strftime("%Y"), id='year_dropdown', placeholder="Select A Year",)
-    season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
+    #season_dropdown = dcc.Dropdown(['Q1', 'Q2', 'Q3', 'Q4'], 'Q1', id='season_dropdown', placeholder="Select A Quarter",)
+    season_dropdown = dcc.RadioItems(
+        id="season_dropdown",
+        options=['Q1', 'Q2', 'Q3', 'Q4'],
+        style={'width':'80%', 'font-size': 18}
+    )
     check_dropdown = dcc.Dropdown(['Monthly Report', 'CheckIn Report', 'CheckOut Report', 'Leave Report'], 'Monthly Report', id='check_dropdown', placeholder="Report",)
 
     def check_table(check_df):
@@ -936,19 +941,19 @@ def init_callbacks():
                         if i >= 31:
                             #print(i, data[i][col], data_previous[i][col])
                             data[i][col] = data_previous[i][col]
-                    # check in <= checkout
                     if data[i]['checkin'] != None and data[i]['checkout'] != None:
                         #print(data[i]['checkin'])
                         #print(data[i]['checkout'])
+                        # check in <= checkout
                         if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) >= datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])):
                             data[i]['checkin'] = data_previous[i]['checkin']
                             data[i]['checkout'] = data_previous[i]['checkout']
-                    # check time > now
-                    if datetime.strptime(data[i]['date'], '%m/%d/%Y').date() == _now.date():
-                        if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) > _now.time():
-                            data[i]['checkin'] = data_previous[i]['checkin']
-                        if datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])) > _now.time():
-                            data[i]['checkout'] = data_previous[i]['checkout']
+                        # check time > now
+                        if datetime.strptime(data[i]['date'], '%m/%d/%Y').date() == _now.date():
+                            if datetime_time(int(data[i]['checkin'][0:2]), int(data[i]['checkin'][3:])) > _now.time():
+                                data[i]['checkin'] = data_previous[i]['checkin']
+                            if datetime_time(int(data[i]['checkout'][0:2]), int(data[i]['checkout'][3:])) > _now.time():
+                                data[i]['checkout'] = data_previous[i]['checkout']
 
                 changes = {}
                 for i in range(len(data)):

@@ -149,6 +149,7 @@ def get_Staff_profile_lst():
         Staffs(staff_name='Ethan'),
         Staffs(staff_name='Marvin'),
         Staffs(staff_name='Johnson'),
+        Staffs(staff_name='Haojun'),
         ]
 
     Staff_profile_lst = [] # finalize lst with valid uuid
