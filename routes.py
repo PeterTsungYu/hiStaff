@@ -100,7 +100,7 @@ def handle_follow(event):
 
     config.line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text='welcome to linebot!'))
+            TextSendMessage(text='歡迎加入!請向管理員索取使用[打卡服務]的權限'))
 
 
 @config.handler.add(UnfollowEvent)
@@ -152,18 +152,18 @@ def handle_message(event):
         else:
             location = address
         msg_reply = TextSendMessage(
-            text=f"Select Check Type if correct location",
+            text=f"如果你的分享地點是正確的話，請接著選擇打卡的形式",
             quick_reply=QuickReply(
                 items=[
                     QuickReplyButton(action=PostbackAction(
-                        label="Check In",
+                        label="上班打卡 Check In",
                         data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkin&location={location}',
                         )),
                     QuickReplyButton(action=PostbackAction(
-                        label="Check Out",
+                        label="下班打卡 Check Out",
                         data=f'id=0&staff_name={staff_integrity.staff_name}&check=checkout&location={location}',
                         )),
-                    QuickReplyButton(action=LocationAction(f"Send location")),
+                    QuickReplyButton(action=LocationAction(f"分享位置")),
                 ]
                 )
             )
@@ -191,21 +191,21 @@ def handle_message(event):
         if staff_integrity != None:
             if msg_text in ['check in', 'check out']:
                 msg_reply = TextSendMessage(
-                    text=f"Share your location",
+                    text=f"分享位置",
                     quick_reply=QuickReply(
                         items=[
-                            QuickReplyButton(action=LocationAction(f"Send location")),
+                            QuickReplyButton(action=LocationAction(f"分享位置")),
                         ]
                         )
                     )
                 #msg_reply = db.moment_bubble(check='checkin', img_url=checkin_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
                 #msg_reply = db.moment_bubble(check='checkout', img_url=checkout_img_url, staff_name=staff_integrity.staff_name, now = now_datetime)
             elif msg_text in ['personal dashboard']:
-                msg_reply = [TemplateSendMessage(alt_text='Your dashboard',
-                                                template=ButtonsTemplate(text='Peek ur dashboard',
-                                                                        actions=[URIAction(label=f"Check Table", 
+                msg_reply = [TemplateSendMessage(alt_text='專屬紀錄表',
+                                                template=ButtonsTemplate(text='選擇一個紀錄表',
+                                                                        actions=[URIAction(label=f"打卡紀錄表", 
                                                                                         uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/date_check?staff={staff_integrity.uuid}'),
-                                                                                URIAction(label=f"Season Table", 
+                                                                                URIAction(label=f"季紀錄表", 
                                                                                         uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/season_check?staff={staff_integrity.uuid}')
                                                                                         ]
                                                                     )
@@ -214,9 +214,9 @@ def handle_message(event):
                             #TextSendMessage(text=f'Your personal Season table: {config.dash_liff}/season_check/name={staff_integrity.staff_name}')
                             ]
             elif msg_text in ['take a leave_start']:
-                msg_reply = TemplateSendMessage(alt_text='Take a Leave',
-                                                template=ButtonsTemplate(text='Take a Leave',
-                                                                        actions=[URIAction(label=f"Leave Form", 
+                msg_reply = TemplateSendMessage(alt_text='請假',
+                                                template=ButtonsTemplate(text='請假',
+                                                                        actions=[URIAction(label=f"請假表", 
                                                                                         uri=f'https://rvproxy.fun2go.co/hiStaff_dashapp/leave_form?staff={staff_integrity.uuid}'),
                                                                         ])
                                                 ),
@@ -252,10 +252,10 @@ def handle_postback(event):
                 msg_reply = db.check_bubble(check=check, staff_name=staff_name, moment=now_datetime.strftime("%Y-%m-%d %H:%M"), location=location)
             elif id == '1':
                 msg_reply = TextSendMessage(
-                    text=f"Share your location",
+                    text=f"分享位置",
                     quick_reply=QuickReply(
                         items=[
-                            QuickReplyButton(action=LocationAction(f"Send location")),
+                            QuickReplyButton(action=LocationAction(f"分享位置")),
                         ]
                         )
                     )
@@ -275,19 +275,20 @@ def handle_postback(event):
                                     last_checkin_moment = last_checkin.created_time
                                     # case: check already
                                     if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day == last_checkin_moment.day):
-                                        msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                        msg_reply = TextSendMessage(text=f'請不要重複打卡喔')
                                         break
                             elif i == 1:
                             # case: check correctly or first time check
                                 checkin = db.CheckIn(staff_name=staff_name, created_time=moment, check_place=location)
                                 db.db_session.add(checkin)
                                 db.db_session.commit()
-                                if (moment.hour > 8) :
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nYou are late! Slacker!')]
-                                elif (moment.hour == 8) and (moment.hour > 30):
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nClose...but you are still late!')]
-                                else:
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
+                                # if (moment.hour > 8) :
+                                #     msg_reply = [TextSendMessage(text=f'成功! {check}\n但好像遲到了')]
+                                # elif (moment.hour == 8) and (moment.hour > 30):
+                                #     msg_reply = [TextSendMessage(text=f'成功! {check}\nClose...but you are still late!')]
+                                # else:
+                                #     msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')]  
+                                msg_reply = [TextSendMessage(text=f'送出成功! {check}\n祝你有個美好的一天!')]
                     elif check == 'checkout': 
                         for i in [0,1,2]:
                             if i == 0:
@@ -296,20 +297,20 @@ def handle_postback(event):
                                     last_checkout_moment = last_checkout.created_time
                                     # case: check already
                                     if (moment.year == last_checkout_moment.year) and (moment.month == last_checkout_moment.month) and (moment.day == last_checkout_moment.day):
-                                        msg_reply = TextSendMessage(text=f'Do not check twice. It is not an exam.')
+                                        msg_reply = TextSendMessage(text=f'請不要重複打卡喔')
                                         break
                             # case: compared to the checkin table
                             elif i == 1:
                                 if  last_checkin != None:
                                     last_checkin_moment = last_checkin.created_time
                                     if (moment.year == last_checkin_moment.year) and (moment.month == last_checkin_moment.month) and (moment.day != last_checkin_moment.day):
-                                        msg_reply = TextSendMessage(text=f'Forgot to check yourself in, silly u.')
+                                        msg_reply = TextSendMessage(text=f'你是不是忘記上班打卡了?')
                                         continue
                                     elif moment.timestamp() < last_checkin_moment.timestamp():
-                                        msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. How on earth can u reverse the time?')
+                                        msg_reply = TextSendMessage(text=f'Checkin @ {last_checkin_moment}. 你的上下班時間怎麼顛倒了?')
                                         break
                                 else:
-                                    msg_reply = TextSendMessage(text=f"U've never checked in before. Unbelievable.")
+                                    msg_reply = TextSendMessage(text=f"你從來沒有上班打卡過耶...")
                                     continue
                                 # case: check correctly and first time check
                             elif i == 2:
@@ -317,13 +318,13 @@ def handle_postback(event):
                                 db.db_session.add(checkout)
                                 db.db_session.commit()
                                 if (moment.hour > 17) :
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nGood day, Worker!')]
+                                    msg_reply = [TextSendMessage(text=f'成功! {check}\n下班囉!')]
                                 elif (moment.hour == 17) and (moment.hour < 30):
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nEfficiency is your motto!')]
+                                    msg_reply = [TextSendMessage(text=f'成功! {check}\n很有效率結束一天的工作!')]
                                 else:
-                                    msg_reply = [TextSendMessage(text=f'Succeed to {check}\nWish you have a good day. Mate!')] 
+                                    msg_reply = [TextSendMessage(text=f'成功! {check}\n祝你有個美好的句點!')] 
                 else:
-                    msg_reply = [TextSendMessage(text=f'Exceed 5min pending time. Pls restart your check again.')] 
+                    msg_reply = [TextSendMessage(text=f'超時5分鐘的打卡，請重新打卡')] 
 
             config.line_bot_api.reply_message(event.reply_token, msg_reply)
 

@@ -79,7 +79,19 @@ def init_callbacks():
         #print(check_df.columns)
         datatable = DataTable(
                             id='check_datatable',
-                            columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
+                            # columns=[{"name": i, "id": i, "deletable": False, "selectable": False, "editable":True} if i in ['checkin', 'checkout'] else {"name": i, "id": i, "deletable": False, "selectable": False, "editable":False} for i in check_df.columns],
+                            columns=[
+                                {"name": '日期', "id": 'date' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '星期', "id": 'weekday' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '上班打卡', "id": 'checkin' , "deletable": False, "selectable": False, "editable": True},
+                                {"name": '上班地點', "id": 'location_in' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '下班打卡', "id": 'checkout' , "deletable": False, "selectable": False, "editable": True},
+                                {"name": '下班地點', "id": 'location_out' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '當日工作時數', "id": 'worktime[hr]' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '請假開始時間', "id": 'leave_start' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '請假時數', "id": 'leave_amount[hr]' , "deletable": False, "selectable": False, "editable": False},
+                                {"name": '累計時數', "id": 'aggregation[hr]' , "deletable": False, "selectable": False, "editable": False},
+                                ],
                             data=check_df.to_dict('records'),
                             editable=True,
                             #filter_action="native",
@@ -122,7 +134,7 @@ def init_callbacks():
                                 },
                             tooltip_data=[
                                 {
-                                    column: {'value': f'Edit with following format: "HH:MM"', 'type': 'markdown'}
+                                    column: {'value': f'以此時間格式進行修改: "HH:MM"', 'type': 'markdown'}
                                     if column in ['checkin', 'checkout']
                                     else f"{value}"
                                     for column, value in row.items()
@@ -239,27 +251,27 @@ def init_callbacks():
                 dbc.Col(html.Div(), width='auto'),
                 dbc.Col(
                     dbc.Card([
-                        dbc.CardHeader("Datepicker Check Table"),
+                        dbc.CardHeader("專屬的個人打卡紀錄表"),
                         dbc.CardBody([
                             check_h2,
                             check_datepicker,
                             html.Div(id='check_datatable_div', style=table_style),
                             html.Br(),
                             html.Br(),
-                            html.H3(id='change_string'),
+                            html.H5(id='change_string'),
                             dcc.Input(
                                 id='check_revision_reason', 
                                 type='text',
                                 required=True,
-                                placeholder="Input your revision reason",
+                                placeholder="在此輸入你的修改理由...",
                                 style={'height': '60px', 'font-size': "22px",},
                                 ),
                             html.Br(),
                             html.Br(),
                             dcc.ConfirmDialogProvider(
-                                children=html.Button('Click to revise a Checkin/Checkout entry', style={'height': '60px', 'font-size': "18px",}),
+                                children=html.Button('送出修改的打卡紀錄', style={'height': '60px', 'font-size': "18px",}),
                                 id='check_button',
-                                message='Ready to submit your change to your working time data. Pls double make sure it.'
+                                message='即將送出修改，請再次確認修改的時間格'
                                 ),
                         ])
                         ]), 
@@ -274,7 +286,7 @@ def init_callbacks():
                 dbc.Col(html.Div(), width='auto'),
                 dbc.Col(
                     dbc.Card([
-                        dbc.CardHeader("Personal Summary"),
+                        dbc.CardHeader("時數摘要"),
                         dbc.CardBody([
                             html.Div(id='sum_string'),
                         ])
@@ -965,16 +977,16 @@ def init_callbacks():
                                 changes[i] = {'col':col, 'previous': pre_datetime, 'current': current_datetime}
                 print(changes)
                 entry = data[active_cell['row']][active_cell['column_id']]
-                change_string = f"Select {active_cell['column_id']} @ {data[active_cell['row']]['date']}. Revise as {entry}"
+                change_string = f"選擇 {active_cell['column_id']} @ {data[active_cell['row']]['date']}. 修改為 {entry}"
             else:
-                change_string = 'Try edit your checkin/checkout entry'
+                change_string = '若要修改打卡紀錄，請提出修改的理由: '
             check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
             workhour = round(sum(check_df['worktime[hr]'].iloc[:]),2)
             leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
-            sum_string = [html.H3(f"Working hours:   {workhour} [hr]"),
-                    html.H3(f"Leaving hours     {leavehour} [hr]"), 
-                    html.H3(f"Required hours:   {required_hours} [hr]"), 
-                    html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
+            sum_string = [html.H5(f"累計工作時數:   {workhour} [hr]"),
+                    html.H5(f"累計請假時數     {leavehour} [hr]"), 
+                    html.H5(f"須求時數:   {required_hours} [hr]"), 
+                    html.H5(f"累計差時:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
 
             return [change_string, data, changes, sum_string]
         
@@ -985,12 +997,12 @@ def init_callbacks():
             if not submit_n_clicks:
                 raise PreventUpdate
             if not reason:
-                change_string = f"Fail. Pls note your reason."
+                change_string = f"修改失敗! 請提出您的理由."
             elif not (active_cell and active_cell['column_id'] in ['checkin', 'checkout']):
-                change_string = f"Fail. Select a checkin/checkout cell for revision."
+                change_string = f"修改失敗! 請先選擇一個上班打卡/下班打卡時間格"
             else:
                 if not changes:
-                    change_string = f"Fail. Fill in a checkin/checkout cell for revision."
+                    change_string = f"修改失敗! 請填入更改一個上班打卡/下班打卡時間格"
                 else:
                     for key, value in changes.items():
                         #print(key, value)
@@ -1024,15 +1036,15 @@ def init_callbacks():
                     db.db_session.commit()
                     #check_table(pd.DataFrame.from_records(data))
                     entry = data[active_cell['row']][active_cell['column_id']]
-                    change_string = f"Succeed {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}"
+                    change_string = f"成功修改 {active_cell['column_id']} @ {data[active_cell['row']]['date']}, {entry}"
                 changes = {}
                 check_df, required_hours = db.table_generator(start_date, end_date, staff).check_dataframe()
                 workhour = round(sum(check_df['worktime[hr]'].iloc[:]),2)
                 leavehour = sum(check_df['leave_amount[hr]'].iloc[:])
-                sum_string = [html.H3(f"Working hours:   {workhour} [hr]"),
-                        html.H3(f"Leaving hours     {leavehour} [hr]"), 
-                        html.H3(f"Required hours:   {required_hours} [hr]"), 
-                        html.H3(f"Difference:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
+                sum_string = [html.H3(f"累計工作時數:   {workhour} [hr]"),
+                        html.H3(f"累計請假時數     {leavehour} [hr]"), 
+                        html.H3(f"須球時數:   {required_hours} [hr]"), 
+                        html.H3(f"累計差時:       {round(leavehour + workhour - required_hours,2)} [hr]"),]
                 return [change_string, check_df.to_dict('records'), changes, sum_string]
     
 

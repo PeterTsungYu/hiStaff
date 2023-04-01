@@ -582,17 +582,17 @@ def location_bubble(check: str, staff_name: str, location='Location'):
                     ]
                 )
             )
-    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check} yourself!', contents=bubble)
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check}!', contents=bubble)
 
 
-def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='Pls Select Date/Time', location='Location'):
+def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='選擇 日期/時間', location='選擇地點'):
     print((now - pd.offsets.DateOffset(minutes=30)).strftime("%Y-%m-%dT%H:%M"))
     '''
     check: 'checkin' or 'checkout' or 'take a leave'
     '''
     if check == 'checkin':
         datetimepicker = DatetimePickerAction(
-                            label="moment",
+                            label="時間",
                             data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
@@ -601,7 +601,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             )
     elif check == 'checkout':
         datetimepicker = DatetimePickerAction(
-                            label="moment",
+                            label="時間",
                             data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
@@ -610,7 +610,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                             )
     elif '_Leave' in check :
         datetimepicker = DatetimePickerAction(
-                            label="moment",
+                            label="時間",
                             data=f'id=3&staff_name={staff_name}&check={check}&location={location}',
                             mode='datetime',
                             initial=now.strftime("%Y-%m-%dT%H:%M"),
@@ -649,7 +649,7 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                         ),
                         TextComponent(
                             margin='md',
-                            text=f"{check}\nLocation: {location}\nDateTime: {moment}",
+                            text=f"{check}\n地點: {location}\n時間: {moment}",
                             wrap=True,
                             size='xs',
                             color='#aaaaaa'
@@ -668,9 +668,9 @@ def moment_bubble(check: str, img_url: str, staff_name: str, now: str, moment='P
                     ]
                 )
             )
-    return FlexSendMessage(alt_text=f'Hi {staff_name}, Clock!', contents=bubble)
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, 已記錄時間!', contents=bubble)
 
-def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', location='Location'):
+def check_bubble(check: str, staff_name: str, moment='請選擇 日期/時間', location='選擇地點'):
     date = moment.split()[0]
     time = moment.split()[1]
     bubble = BubbleContainer(
@@ -680,7 +680,7 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', loc
                     spacing='md',
                     contents=[
                         TextComponent(
-                            text=f"{date}\n{check} {staff_name}\nLocation: {location}\nTime: {time}",
+                            text=f"日期: {date}\n打卡: {check} {staff_name}\n地點: {location}\n時間: {time}",
                             weight='bold',
                             size='xl',
                             wrap=True,
@@ -695,21 +695,21 @@ def check_bubble(check: str, staff_name: str, moment='Pls Select Date/Time', loc
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
-                                label="Revise Location",
+                                label="修改地點",
                                 data=f'id=1&staff_name={staff_name}&check={check}',
                             )
                         ),
                         ButtonComponent(
                             style='primary',
                             action=PostbackAction(
-                                label="That's it",
+                                label="確認完成",
                                 data=f'id=2&staff_name={staff_name}&check={check}&moment={moment}&location={location}',
                             )
                         )
                     ]
                 )
             )
-    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check} yourself!', contents=bubble)
+    return FlexSendMessage(alt_text=f'Hi {staff_name}, {check}!', contents=bubble)
 
 def reply_dash_msg():
     pass
