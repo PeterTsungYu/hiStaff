@@ -235,7 +235,7 @@ class staffs_datatable_generator:
         self.staff=staff
 
     def staffs_datatable(self):
-        df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['Type', 'Unit[hr]', 'Quota[day]'])
+        df_quota = pd.DataFrame([( k, v['unit'], dict(self.staff.__dict__.items()).get(k)) for k,v in leaves_type.items()], columns=['假別', '請假單位[小時]', '請假額度[天]'])
         return df_quota
 
 

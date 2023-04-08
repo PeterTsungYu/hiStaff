@@ -151,7 +151,7 @@ def init_callbacks():
     # leave form objs
     leave_start_datetime_picker = dcc.Input(id='leave_start_datetime_picker', type="datetime-local", step="1", style={'height': '40px', 'font-size': "20px",},)
     leave_card = dbc.Card([
-                    dbc.CardHeader("Leave Form"),
+                    dbc.CardHeader("請假單"),
                     dbc.CardBody(
                         [
                             check_h2,
@@ -160,7 +160,7 @@ def init_callbacks():
                                     dbc.Card(
                                         dbc.CardBody(
                                             [
-                                                html.H3("Leave Type", className="card-title"),
+                                                html.H3("選擇假別", className="card-title"),
                                                 html.P(id='leave_unit'),
                                                 dcc.RadioItems(
                                                     id="leave_type_radio",
@@ -182,22 +182,22 @@ def init_callbacks():
                                 ],
                             ),
                             html.Br(),
-                            html.H2("Leave Start", className="card-title"),
+                            html.H2("請假開始時間", className="card-title"),
                             leave_start_datetime_picker,
                             html.Br(),
                             html.Br(),
-                            html.H2("Reserved Amount", className="card-title"),
+                            html.H2("請假單位數", className="card-title"),
                             dcc.Slider(id="reserved_amount_slider", min=1, max=8, step=1, value=1),
                             html.Br(),
-                            html.H2("Leave End", className="card-title"),
+                            html.H2("請假結束時間", className="card-title"),
                             html.H4(id='leave_end'),
                             html.Br(),
                             html.Div(id='leave_entry'),
                             html.P(id='leave_msg'),
                             dcc.ConfirmDialogProvider(
-                                children=html.Button('Click to take a leave', style={'height': '60px', 'font-size': "20px",}),
+                                children=html.Button('確認請假單', style={'height': '60px', 'font-size': "20px",}),
                                 id='leave_button',
-                                message='Ready to submit your day-off request. Pls double make sure it.',
+                                message='請在送出前確認請假單資訊是否正確',
                             ),
                         ]
                     ),
@@ -216,12 +216,12 @@ def init_callbacks():
             dbc.Col(html.Div(), width='auto'),
             dbc.Col(
                 dbc.Card([
-                    dbc.CardHeader("Yearly Leave Table"),
+                    dbc.CardHeader("年度請假表格"),
                     dbc.CardBody([
-                        html.H4("Leave Datatable: Future", className="card-title"),
+                        html.H4("請假表格: 未來", className="card-title"),
                         html.Div(id='total_leave_datatable_future_div', style=table_style),
                         html.Br(),
-                        html.H4("Leave Datatable: Past", className="card-title"),
+                        html.H4("請假表格: 過去", className="card-title"),
                         html.Div(id='total_leave_datatable_past_div', style=table_style),
                     ])
                     ]), 
@@ -562,16 +562,16 @@ def init_callbacks():
     def update_on_leave_start_amount(leave_start, reserved_amount, leave_type, max) :
         _lst = [leave_start, reserved_amount, leave_type]
         if any(_arg == None for _arg in _lst):
-            leave_unit_children = 'Pls select a type'
-            leave_end = 'Pls select a type'
+            leave_unit_children = '請選擇一個假別'
+            leave_end = '請選擇一個假別'
             leave_entry = dcc.Markdown(
                 f'''
-                    Ready to take a leave
-                    Pls Fill in all of 
-                    * leave_type
-                    * leave_start
-                    * leave_end
-                    * leave_reserved
+                    在準備請假之前
+                    請先填入下列的欄位 
+                    * 假別
+                    * 請假開始時間
+                    * 請假結束時間
+                    * 請假單位數
                 ''')
             return leave_unit_children, max, leave_end, leave_entry
             
@@ -586,7 +586,7 @@ def init_callbacks():
                     _unit = v['unit']
                     _type = k
                     break
-            leave_unit_children = f'Minimum {_unit}hr per {_type}'
+            leave_unit_children = f'提醒: 最少 {_unit}小時 每單位 {_type}'
             if _unit < 8:
                 max = 8/_unit
                 if reserved_amount > max:
