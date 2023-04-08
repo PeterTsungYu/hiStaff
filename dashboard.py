@@ -165,7 +165,7 @@ def init_callbacks():
                                                 dcc.RadioItems(
                                                     id="leave_type_radio",
                                                     options={v['type']:k for (k,v) in db.leaves_type.items()},
-                                                    style={'width':'80%', 'font-size': 18}
+                                                    style={'width':'30%', 'font-size': 18}
                                                 ),
                                             ]
                                         ),
@@ -663,20 +663,20 @@ def init_callbacks():
                 for i in staff.Leaves_time:
                     if _start > _end:
                         _successful_record = False
-                        leave_msg = f'time inversion found: {_start} > {_end}'
+                        leave_msg = f'時間倒轉了: {_start} > {_end}'
                         break
                     _record_start = i.start.strftime("%Y-%m-%d %H:%M:%S")
                     _record_end = i.end.strftime("%Y-%m-%d %H:%M:%S")
                     _record_range = DateTimeRange(_record_start, _record_end)
                     if (_leave_timerange in _record_range) or (_record_range in _leave_timerange) or (_timerange_start in _record_range) or (_timerange_end in _record_range):
                         _successful_record = False
-                        leave_msg = f'Failed leave_record. Overlapping {_leave_timerange} to {_record_range}.'
+                        leave_msg = f'請假單送出失敗，可能因為假別重疊了: {_leave_timerange} to {_record_range}.'
                         break
                 for i in _leave_daterange:
                     #print(bdays_hdays_df.loc[f'{i.date()}'])
                     if not bdays_hdays_df.loc[f'{i.date()}', 'Working Day']:
                         _successful_record = False
-                        leave_msg = f'Failed leave_record. Overlapping {i} to {bdays_hdays_df.loc[f"{i.date()}", "weekday"]}.'
+                        leave_msg = f'請假單送出失敗，可能因為假別重疊 / 請假日在假日: {i} to {bdays_hdays_df.loc[f"{i.date()}", "weekday"]}.'
                         break
 
                 if _successful_record:
@@ -704,7 +704,7 @@ def init_callbacks():
                     filter(db.Staffs.staff_name == staff.staff_name).\
                     update({f"{_type}": updated_quota})
 
-                    leave_msg = 'Successful leave_record'
+                    leave_msg = '成功送出請假單，請確認下方表格是否更新'
                     db.db_session.commit()
                     
         leave_df_past, leave_df_future = leave_table_generator.leave_dataframe()

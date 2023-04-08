@@ -102,17 +102,17 @@ class Leaves(Base):
         return f'<Leave {self.id!r}>'
 
 leaves_type = {
-        'Official_Leave':{'type':'OF', 'unit':2}, #[hr]
-        'Personal_Leave':{'type':'PS', 'unit':2}, #[hr]
-        'Sick_Leave':{'type':'SK', 'unit':4}, #[hr]
-        'Business_Leave':{'type':'BN', 'unit':2}, #[hr]
-        'Deferred_Leave':{'type':'DF', 'unit':4}, #[hr]
-        'Annual_Leave':{'type':'AA', 'unit':4}, #[hr]
-        'Funeral_Leave':{'type':'FN', 'unit':4}, #[hr]
-        'Menstruation_Leave':{'type':'MS', 'unit':8}, #[hr]
-        'Marital_Leave':{'type':'MT', 'unit':8}, #[hr]
-        'Maternity_Leave':{'type':'MN', 'unit':8}, #[hr]
-        'Paternity_Leave':{'type':'PT', 'unit':8}, #[hr]
+        '公假':{'type':'OF', 'unit':2}, #[hr]
+        '事假':{'type':'PS', 'unit':2}, #[hr]
+        '病假':{'type':'SK', 'unit':4}, #[hr]
+        '出差':{'type':'BN', 'unit':2}, #[hr]
+        '補假':{'type':'DF', 'unit':4}, #[hr]
+        '特休':{'type':'AA', 'unit':4}, #[hr]
+        '喪假':{'type':'FN', 'unit':4}, #[hr]
+        '月經假':{'type':'MS', 'unit':8}, #[hr]
+        '婚假':{'type':'MT', 'unit':8}, #[hr]
+        '產假':{'type':'MN', 'unit':8}, #[hr]
+        '陪產假':{'type':'PT', 'unit':8}, #[hr]
     }
     
 class Staffs(Base):
@@ -120,17 +120,17 @@ class Staffs(Base):
     uuid = Column(String, primary_key=True)
     staff_name = Column(String, nullable=False)
     beacon = Column(Boolean, default=False)
-    Official_Leave = Column(Float, default=365)
-    Personal_Leave = Column(Float, default=14)
-    Sick_Leave = Column(Float, default=30)
-    Business_Leave = Column(Float, default=365)
-    Deferred_Leave = Column(Float, default=0)
-    Annual_Leave = Column(Float, default=10)
-    Funeral_Leave = Column(Float, default=8)
-    Menstruation_Leave = Column(Float, default=12)
-    Marital_Leave = Column(Float, default=8)
-    Maternity_Leave = Column(Float, default=40)
-    Paternity_Leave = Column(Float, default=5)
+    公假 = Column(Float, default=365)
+    事假 = Column(Float, default=14)
+    病假 = Column(Float, default=30)
+    出差 = Column(Float, default=365)
+    補假 = Column(Float, default=0)
+    特休 = Column(Float, default=10)
+    喪假 = Column(Float, default=8)
+    月經假 = Column(Float, default=12)
+    婚假 = Column(Float, default=8)
+    產假 = Column(Float, default=40)
+    陪產假 = Column(Float, default=5)
     '''
     def __repr__(self):
         return f'<Staff {self.staff_name!r}>'
@@ -144,7 +144,7 @@ Staffs.Leaves_time = relationship("Leaves", backref="many_staff")
 def get_Staff_profile_lst():
     # staff list and uuid
     Staff_profile_checklst = [ #temp lst for checking uuid
-        Staffs(staff_name='Peter', Annual_Leave=10),
+        Staffs(staff_name='Peter', 特休=10),
         Staffs(staff_name='Nina'),
         Staffs(staff_name='Ethan'),
         Staffs(staff_name='Marvin'),
@@ -272,7 +272,7 @@ def check_leave_calc(staff, start, end, date_index):
                 if i.type == v['type']:
                     leave_type = k
                     # unit within a day
-                    if leave_type not in ['Menstruation_Leave', 'Marital_Leave', 'Maternity_Leave', 'Paternity_Leave']:
+                    if leave_type not in ['月經假', '婚假', '產假', '陪產假']:
                         leave_amount = v['unit'] * int(i.reserved)
                         if not leave_lst_dict.get(i.start.date()):
                             leave_dict[i.start.date()] = {'leave_start': f'{leave_type}\n{i.start.time()}_{leave_amount}[hr]', 'leave_amount': leave_amount} 
@@ -452,14 +452,14 @@ class all_table_generator:
             for staff in self.staff_lst:
                 #print(month_all_dict)
                 deferred_delta = month_all_dict.get(staff.staff_name)
-                # update staff.Deferred_Leave
-                cur_quota = db_session.query(Staffs).filter(Staffs.staff_name == staff.staff_name).scalar().__dict__.get('Deferred_Leave')
+                # update staff.補假
+                cur_quota = db_session.query(Staffs).filter(Staffs.staff_name == staff.staff_name).scalar().__dict__.get('補假')
                 #print(cur_quota)
                 updated_quota = cur_quota + deferred_delta
                 #print(updated_quota)
                 db_session.query(Staffs).\
                 filter(Staffs.staff_name == staff.staff_name).\
-                update({"Deferred_Leave": updated_quota})
+                update({"補假": updated_quota})
                 db_session.commit()
             return 'successful update_deferred_leave'
         except BaseException as e:
@@ -510,9 +510,9 @@ class table_generator:
             elif span == 'future':
                 leave_dict = leave_dict_future
             if leave_dict:
-                leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['type', 'start', 'end', 'reserved', 'unit'])[::-1].reset_index()
-                leave_df['start'] = leave_df['start'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
-                leave_df['end'] = leave_df['end'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+                leave_df = pd.DataFrame.from_dict(leave_dict, orient='index', columns=['假別', '請假開始時間', '請假結束時間', '請假單位數', '請假單位'])[::-1].reset_index()
+                leave_df['請假開始時間'] = leave_df['請假開始時間'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
+                leave_df['請假結束時間'] = leave_df['請假結束時間'].dt.strftime("%m/%d/%Y, %A\n%H:%M:%S")
                 #datetime. strptime(date_time_str, '%d/%m/%y %H:%M:%S')
                 #df = pd.DataFrame(data={'date':bdays_hdays_df.index, 'weekday': bdays_hdays_df.weekday,'checkin':in_lst, 'checkout':out_lst, 'worktime[hr]':worktime_lst, 'aggregation[hr]':agg_lst})
                 print(leave_df)
